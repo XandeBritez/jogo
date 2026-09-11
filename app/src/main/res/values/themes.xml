@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Fodinha" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#06301F</item>
+        <item name="android:navigationBarColor">#06301F</item>
+    </style>
+</resources>
