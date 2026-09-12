@@ -47,7 +47,9 @@ dado o seed. É o único módulo com testes unitários, e é onde qualquer dúvi
   simplesmente não chega a valer.
 
 A mão aparece em cinco cartas por linha, quebrando para baixo: com nove na mesma linha
-só dava para ver as primeiras.
+só dava para ver as primeiras. A mesa quebra do mesmo jeito, em no máximo quatro cartas
+por linha (`cartasPorLinha`, em `ui/PlayerLayout.kt`): com seis jogadores a sexta carta
+ficava fora da tela.
 
 A redação é feita em `GameState.viewFor(playerId)`, que devolve um `PlayerView`. É esse o objeto
 que trafega na rede: **mão alheia nunca atravessa o socket**.

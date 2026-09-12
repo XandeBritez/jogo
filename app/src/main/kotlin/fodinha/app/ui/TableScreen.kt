@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -375,13 +376,19 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
     }
 }
 
-/** Cartas no centro da mesa, na ordem em que sairam. */
+/**
+ * Cartas no centro da mesa, na ordem em que sairam.
+ *
+ * Quebra em linhas equilibradas pelo numero de jogadores, e nao pelas cartas
+ * ja jogadas: assim a mesa reserva o espaco desde a primeira carta em vez de
+ * mudar de formato no meio da vaza.
+ */
 @Composable
 private fun TrickArea(view: PlayerView) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(130.dp)
+            .heightIn(min = 130.dp)
             .background(SlateSoft, RoundedCornerShape(14.dp))
             .border(2.dp, MenuEdge, RoundedCornerShape(14.dp))
             .padding(10.dp),
@@ -393,21 +400,55 @@ private fun TrickArea(view: PlayerView) {
                 color = Ink.copy(alpha = 0.7f),
             )
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                view.currentTrick.forEach { play ->
-                    val p = view.players.first { it.id == play.playerId }
-                    val venceu = view.trickWinnerId == play.playerId
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        PlayingCard(
-                            play.card,
-                            isManilha = play.card.rank.label == view.manilhaLabel,
-                        )
-                        Text(
-                            if (venceu) "${p.name} ✓" else p.name,
-                            fontSize = 11.sp,
-                            fontWeight = if (venceu) FontWeight.Black else FontWeight.Normal,
-                            color = if (venceu) MenuGold else Ink,
-                        )
+            val porLinha = cartasPorLinha(maxOf(view.order.size, view.currentTrick.size))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                view.currentTrick.chunked(porLinha).forEach { linha ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        linha.forEach { play ->
+                            val p = view.players.first { it.id == play.playerId }
+                            val venceu = view.trickWinnerId == play.playerId
+                            Column(
+                                // Nome comprido nao pode empurrar a carta do
+                                // vizinho para fora da mesa.
+                                modifier = Modifier.width(82.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                PlayingCard(
+                                    play.card,
+                                    isManilha = play.card.rank.label == view.manilhaLabel,
+                                )
+                                // O visto fica fora do nome: junto, era ele que
+                                // sumia no "..." de quem tem nome comprido.
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    Text(
+                                        p.name,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (venceu) FontWeight.Black else FontWeight.Normal,
+                                        color = if (venceu) MenuGold else Ink,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (venceu) {
+                                        Text(
+                                            " ✓",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = MenuGold,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
