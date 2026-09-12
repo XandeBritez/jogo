@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,22 +7,41 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Chave da Play Store. Fica em keystore/ (ignorada pelo git); sem ela o
+// release sai sem assinatura, mas o build nao quebra.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore/keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "fodinha.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "fodinha.app"
+        applicationId = "com.xandebritez.fodinha"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file("keystore/" + keystoreProps.getProperty("storeFile").removePrefix("../keystore/"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystoreProps.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }
     }
 

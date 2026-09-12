@@ -203,6 +203,15 @@ não precisa passar pela rede.
 Quem cai do socket sai da voz na hora (sem microfone fantasma na lista); no relay o
 endereço expira sozinho depois de 5 s sem pacote.
 
+## Publicar na Play Store
+
+- `applicationId`: `com.xandebritez.fodinha` (não muda depois de publicado).
+- Chave de assinatura em `keystore/` (ignorada pelo git — guarde backup, sem ela
+  não há atualização). `keystore/keystore.properties` alimenta o `signingConfig`.
+- `./gradlew.bat :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`.
+- Ficha: `store/icon-512.png`, `store/feature-1024x500.png`; política de
+  privacidade em `docs/privacidade.md` (publicar via GitHub Pages).
+
 ## Permissões
 
 API 31+ pede `BLUETOOTH_SCAN` e `BLUETOOTH_CONNECT` em runtime — o manifest sozinho não basta.
