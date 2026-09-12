@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -169,3 +171,23 @@ fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
         )
     }
 }
+
+/**
+ * Campo de texto dentro de um bloco escuro.
+ *
+ * Sem isto o campo herda o colorScheme e, no tema claro, escreve com a tinta
+ * clara do tema em cima do fundo escuro do dialogo - ou pior, texto claro em
+ * container claro.
+ */
+@Composable
+fun menuTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White,
+    cursorColor = MenuGold,
+    focusedBorderColor = MenuGold,
+    unfocusedBorderColor = MenuEdge,
+    focusedLabelColor = MenuGold,
+    unfocusedLabelColor = inkDim(0.75f),
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent,
+)

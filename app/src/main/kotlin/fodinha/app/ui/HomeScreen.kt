@@ -363,19 +363,23 @@ private fun NameDialog(current: String, onName: (String) -> Unit, onDismiss: () 
     var text by remember { mutableStateOf(current) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Seu nome") },
+        containerColor = Slate,
+        title = { Text("Seu nome", color = Color.White) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                colors = menuTextFieldColors(),
             )
         },
         confirmButton = {
-            TextButton(onClick = { onName(text.ifBlank { "Voce" }); onDismiss() }) { Text("Salvar") }
+            TextButton(onClick = { onName(text.ifBlank { "Voce" }); onDismiss() }) {
+                Text("Salvar", color = MenuGold)
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = Ink) } },
     )
 }
 
@@ -394,7 +398,8 @@ private fun RoomDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        containerColor = Slate,
+        title = { Text(title, color = Color.White) },
         text = {
             Column {
                 OutlinedTextField(
@@ -403,16 +408,17 @@ private fun RoomDialog(
                     label = { Text("Nome da sala") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = menuTextFieldColors(),
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onHost, modifier = Modifier.fillMaxWidth()) { Text(hostLabel) }
                 Spacer(Modifier.height(14.dp))
-                Text("Ou entre numa sala existente:", fontWeight = FontWeight.SemiBold)
+                Text("Ou entre numa sala existente:", fontWeight = FontWeight.SemiBold, color = Color.White)
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(onClick = onRescan, modifier = Modifier.fillMaxWidth()) { Text(rescanLabel) }
                 Spacer(Modifier.height(8.dp))
                 if (entries.isEmpty()) {
-                    Text(emptyHint, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    Text(emptyHint, fontSize = 13.sp, color = inkDim(0.8f))
                 } else {
                     LazyColumn(
                         modifier = Modifier.heightIn(max = 190.dp),
@@ -425,11 +431,16 @@ private fun RoomDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(e.title, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text(
+                                        e.title,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        color = Color.White,
+                                    )
                                     Text(
                                         e.subtitle,
                                         fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                        color = inkDim(0.8f),
                                         maxLines = 1,
                                     )
                                 }
@@ -440,7 +451,7 @@ private fun RoomDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = MenuGold) } },
     )
 }
 
@@ -448,9 +459,10 @@ private fun RoomDialog(
 private fun InfoDialog(title: String, body: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(body, fontSize = 14.sp) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Entendi") } },
+        containerColor = Slate,
+        title = { Text(title, color = Color.White) },
+        text = { Text(body, fontSize = 14.sp, color = Ink) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Entendi", color = MenuGold) } },
     )
 }
 

@@ -401,6 +401,7 @@ private fun NameEditDialog(current: String, onSave: (String) -> Unit, onDismiss:
                 onValueChange = { text = it },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                colors = menuTextFieldColors(),
             )
         },
         confirmButton = {
