@@ -2,5 +2,6 @@
 <resources>
     <color name="felt">#0B5D3B</color>
     <color name="felt_dark">#06301F</color>
+    <color name="icon_bg">#2E9E4F</color>
     <color name="gold">#D9A441</color>
 </resources>
