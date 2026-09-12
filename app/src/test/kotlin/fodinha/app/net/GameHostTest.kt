@@ -156,7 +156,7 @@ class GameHostTest {
         host.startGame()
         advanceUntilIdle()
 
-        val view = transport.msgsFor(1).filterIsInstance<HostMsg.View>().lastOrNull()
+        val view = transport.msgsFor(1).filterIsInstance<HostMsg.View>().firstOrNull()
         assertNotNull("cliente nunca recebeu a mesa", view)
         assertEquals(3, view!!.view.players.size)
         assertEquals(1, view.view.cardsThisRound)
@@ -182,10 +182,11 @@ class GameHostTest {
         advanceUntilIdle()
 
         // Toca varias rodadas para varrer os dois casos: a cega de 1 carta e as normais.
+        // A rodada emenda sozinha depois do resumo; aqui basta deixar o tempo
+        // virtual correr entre uma leva de jogadas humanas e a seguinte.
         var guard = 0
         while (guard++ < 8) {
             driveHumans(host, transport)
-            host.advanceRound()
             advanceUntilIdle()
         }
 
@@ -216,8 +217,17 @@ class GameHostTest {
     }
 
     @Test
-    fun `so o dono da sala avanca a rodada`() = runTest {
-        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+    fun `rodada avanca sozinha depois do resumo, sem ninguem pedir`() = runTest {
+        val host = GameHost(
+            this,
+            "Mesa",
+            "Dono",
+            botDelayMillis = 0,
+            bidSeconds = 1,
+            playSeconds = 1,
+            trickRevealMillis = 100,
+            roundOverMillis = 5_000,
+        )
         host.createOwnerSeat()
         val transport = FakeHostTransport(this)
         host.attachRemote(transport)
@@ -229,13 +239,14 @@ class GameHostTest {
         host.startGame()
         advanceUntilIdle()
 
-        val antes = transport.msgsFor(1).filterIsInstance<HostMsg.View>().last().view
-        if (antes.phase == Phase.ROUND_OVER) {
-            transport.send(1, ClientMsg.NextRound)
-            advanceUntilIdle()
-            val depois = transport.msgsFor(1).filterIsInstance<HostMsg.View>().last().view
-            assertEquals("cliente comum avancou a rodada", antes.roundIndex, depois.roundIndex)
-        }
+        // Ninguem mandou mensagem nenhuma depois do start: o relogio do turno
+        // cobre os humanos e o host emenda a rodada por conta propria.
+        val vistas = transport.msgsFor(1).filterIsInstance<HostMsg.View>().map { it.view }
+        assertTrue("nem chegou ao fim da primeira rodada", vistas.any { it.phase == Phase.ROUND_OVER })
+        assertTrue(
+            "rodada nao avancou sozinha",
+            vistas.any { it.roundIndex > 0 },
+        )
 
         host.close()
     }
@@ -312,7 +323,7 @@ class GameHostTest {
 
     @Test
     fun `estourado o prazo o host joga pelo jogador`() = runTest {
-        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0, roundOverMillis = 60_000)
         host.createOwnerSeat()
         host.addBot("Robo")
         host.startGame()

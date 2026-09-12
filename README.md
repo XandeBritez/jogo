@@ -72,15 +72,20 @@ de aparelhos pareados) mora nos dialogos dos dois atalhos, nao mais inline na te
 
 Nada disso toca a Engine: regra e a mesma para todo mundo na mesa.
 
-## Pausa da vaza
+## Pausa da vaza e virada de rodada
 
 Quando o último jogador solta a carta, a mesa **não** é recolhida na hora: a engine entra em
 `Phase.TRICK_REVEAL` com as cartas expostas e o vencedor já decidido (marcado com ✓ na tela).
 Passados **5 segundos**, o host chama `Engine.closeTrick`, a mesa limpa e quem levou a vaza sai
 na próxima. Ninguém joga durante a exibição — `legalPlays` fica vazio nessa fase.
 
-A pausa vive no host, não na UI, então vale igual contra bot, no WiFi e no Bluetooth: todo
-mundo na mesa vê as cartas pelo mesmo tempo.
+Fechada a rodada, o resumo (previu/fez/vidas) fica **5 segundos** na tela e a próxima rodada
+começa **sozinha**. Ninguém precisa apertar nada: antes só o dono da sala avançava, e se ele
+largasse o celular a mesa inteira ficava presa. `ClientMsg.NextRound` deixou de existir.
+
+As duas pausas vivem no host, não na UI, então valem igual contra bot, no WiFi e no Bluetooth:
+todo mundo na mesa vê a mesma coisa pelo mesmo tempo. O contador na tela (`Proxima rodada em
+Ns`) só mostra a espera — quem vira a rodada é o host.
 
 ## Relógio do turno
 
@@ -137,7 +142,7 @@ Instalar num aparelho:
   termina com ranking completo, e `PlayerView` nunca vaza mão alheia.
 - ✅ `:app:testDebugUnitTest` — 6 testes do host com transporte falso, exercitando o caminho
   remoto sem aparelho: entrada de cliente, `Welcome`, lobby, partida andando, redação da view
-  enviada pela rede, avanço de rodada restrito ao dono e ida-e-volta da serialização.
+  enviada pela rede, rodada emendando sozinha depois do resumo e ida-e-volta da serialização.
 - ✅ `:app:assembleDebug` — APK compila.
 - ✅ **Rodado em aparelho real** (Xiaomi 22101320G / Redmi Note 12 Pro, via USB). Partida contra
   bot jogada de ponta a ponta, sem crash:

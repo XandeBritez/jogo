@@ -37,9 +37,6 @@ sealed interface ClientMsg {
 
     @Serializable
     data object AddBot : ClientMsg
-
-    @Serializable
-    data object NextRound : ClientMsg
 }
 
 /** Host -> cliente. */

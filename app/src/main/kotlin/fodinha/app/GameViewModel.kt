@@ -219,8 +219,6 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun playBlindAt(index: Int) =
         send(ClientMsg.Play(GameAction.PlayBlindAt(_ui.value.myId, index)))
 
-    fun nextRound() = send(ClientMsg.NextRound)
-
     fun leave() {
         closeAll()
         _ui.update {

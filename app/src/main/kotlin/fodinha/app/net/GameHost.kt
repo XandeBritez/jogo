@@ -31,6 +31,8 @@ class GameHost(
     private val playSeconds: Int = 40,
     /** Quanto a vaza fechada fica exposta na mesa antes de ser recolhida. */
     private val trickRevealMillis: Long = 5_000L,
+    /** Quanto o resumo da rodada fica na tela antes de a proxima comecar sozinha. */
+    private val roundOverMillis: Long = 5_000L,
 ) {
     private data class Seat(
         val id: Int,
@@ -153,10 +155,6 @@ class GameHost(
             ClientMsg.StartGame -> if (playerId == 0) startGame()
 
             is ClientMsg.Play -> submit(playerId, msg.action)
-
-            // So o dono da sala avanca a rodada: senao um cliente apressado
-            // pularia o resumo dos outros.
-            ClientMsg.NextRound -> if (playerId == 0) advanceRound()
         }
     }
 
@@ -188,16 +186,6 @@ class GameHost(
                 state = it
                 syncLocked()
             }
-        }
-        kickDrive()
-    }
-
-    suspend fun advanceRound() {
-        mutex.withLock {
-            val g = state ?: return@withLock
-            if (g.phase != Phase.ROUND_OVER) return@withLock
-            state = Engine.nextRound(g)
-            syncLocked()
         }
         kickDrive()
     }
@@ -236,6 +224,21 @@ class GameHost(
 
     private suspend fun driveLoop() {
         while (true) {
+            // Fim de rodada: mostra o resumo por uns segundos e emenda sozinho.
+            // Nao depende de ninguem apertar botao - quem abriu a sala pode ter
+            // largado o celular, e os outros ficariam presos esperando.
+            val resumindo = mutex.withLock { state?.phase == Phase.ROUND_OVER }
+            if (resumindo) {
+                delay(roundOverMillis)
+                mutex.withLock {
+                    val g = state ?: return
+                    if (g.phase != Phase.ROUND_OVER) return@withLock
+                    state = Engine.nextRound(g)
+                    syncLocked()
+                }
+                continue
+            }
+
             // Vaza fechada: segura as cartas na mesa para todo mundo ver.
             val revealing = mutex.withLock { state?.phase == Phase.TRICK_REVEAL }
             if (revealing) {

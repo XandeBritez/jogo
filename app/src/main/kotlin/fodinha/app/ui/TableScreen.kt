@@ -64,6 +64,9 @@ import fodinha.engine.PlayerView
 /** Um tom acima do bloco escuro: usado no circulo de previsao habilitado. */
 private val SlateBrightTable = Color(0xFF2A5C3C)
 
+/** Espera do resumo da rodada. Igual ao `roundOverMillis` do host. */
+private const val ROUND_OVER_SECONDS = 5
+
 @Composable
 fun TableScreen(
     view: PlayerView,
@@ -71,7 +74,6 @@ fun TableScreen(
     onPlay: (GameCard) -> Unit,
     onPlayBlind: () -> Unit,
     onPlayBlindAt: (Int) -> Unit,
-    onNextRound: () -> Unit,
     onLeave: () -> Unit,
 ) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
@@ -107,7 +109,7 @@ fun TableScreen(
                 Phase.BIDDING -> BiddingPanel(view, onBid)
                 Phase.PLAYING -> PlayingPanel(view)
                 Phase.TRICK_REVEAL -> TrickRevealPanel(view)
-                Phase.ROUND_OVER -> RoundOverPanel(view, onNextRound)
+                Phase.ROUND_OVER -> RoundOverPanel(view)
                 Phase.GAME_OVER -> GameOverPanel(view, onLeave)
             }
 
@@ -517,7 +519,7 @@ private fun PlayingPanel(view: PlayerView) {
 }
 
 @Composable
-private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
+private fun RoundOverPanel(view: PlayerView) {
     Box(Modifier.fillMaxWidth().background(Slate, RoundedCornerShape(12.dp))) {
         Column(Modifier.padding(14.dp)) {
             Text("Fim da rodada", fontWeight = FontWeight.Bold, fontSize = scaled(18.sp), color = Color.White)
@@ -538,11 +540,42 @@ private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(12.dp))
-            MenuTile(
-                modifier = Modifier.fillMaxWidth().height(58.dp),
-                onClick = onNext,
-            ) { Text("Proxima rodada", color = Color.White, fontSize = scaled(18.sp)) }
+            NextRoundCountdown(view.roundIndex)
         }
+    }
+}
+
+/**
+ * Conta os segundos ate a proxima rodada. Quem de fato avanca e o host, no
+ * mesmo lugar onde ja vivia a pausa da vaza; isto aqui so mostra a espera.
+ *
+ * Conta sozinho porque em ROUND_OVER nao chega acao nenhuma: a view do fim da
+ * rodada cai no aparelho uma vez e fica parada ate a proxima comecar.
+ */
+@Composable
+private fun NextRoundCountdown(roundIndex: Int) {
+    var left by remember(roundIndex) { mutableIntStateOf(ROUND_OVER_SECONDS) }
+    LaunchedEffect(roundIndex) {
+        while (left > 0) {
+            delay(1000)
+            left -= 1
+        }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            if (left > 0) "Proxima rodada em ${left}s" else "Comecando...",
+            color = MenuGold,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = scaled(15.sp),
+        )
+        Spacer(Modifier.height(6.dp))
+        LinearProgressIndicator(
+            progress = { (left / ROUND_OVER_SECONDS.toFloat()).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+            color = MenuGold,
+            trackColor = SlateBrightTable,
+        )
     }
 }
 
