@@ -124,6 +124,10 @@ private fun App(vm: GameViewModel, ui: UiState) {
                     onRemoveBot = vm::removeBot,
                     onStart = vm::startGame,
                     onLeave = vm::leave,
+                    onJoinVoice = vm::joinVoice,
+                    onLeaveVoice = vm::leaveVoice,
+                    onToggleMic = vm::toggleMic,
+                    onToggleMutePeer = vm::toggleMutePeer,
                 )
 
                 Screen.TABLE -> ui.view?.let { v ->
@@ -134,6 +138,11 @@ private fun App(vm: GameViewModel, ui: UiState) {
                         onPlayBlind = vm::playBlind,
                         onPlayBlindAt = vm::playBlindAt,
                         onLeave = vm::leave,
+                        ui = ui,
+                        onJoinVoice = vm::joinVoice,
+                        onLeaveVoice = vm::leaveVoice,
+                        onToggleMic = vm::toggleMic,
+                        onToggleMutePeer = vm::toggleMutePeer,
                     )
                 }
 

@@ -59,6 +59,7 @@ import fodinha.engine.Card as GameCard
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.unit.isUnspecified
+import fodinha.app.UiState
 import fodinha.engine.Phase
 import fodinha.engine.PlayerView
 
@@ -73,6 +74,12 @@ fun TableScreen(
     onPlayBlind: () -> Unit,
     onPlayBlindAt: (Int) -> Unit,
     onLeave: () -> Unit,
+    // Voz: so existe em sala WiFi. Fora dela nada disto aparece.
+    ui: UiState? = null,
+    onJoinVoice: () -> Unit = {},
+    onLeaveVoice: () -> Unit = {},
+    onToggleMic: () -> Unit = {},
+    onToggleMutePeer: (Int) -> Unit = {},
 ) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -95,8 +102,12 @@ fun TableScreen(
                 .padding(12.dp),
         ) {
             HeaderBar(view, onLeave, onOpenHistory = { historyOpen = true })
+            if (ui != null) {
+                VoiceGap(ui, 8.dp)
+                VoiceBar(ui, onJoin = onJoinVoice, onLeave = onLeaveVoice, onToggleMic = onToggleMic, compact = true)
+            }
             Spacer(Modifier.height(10.dp))
-            PlayersStrip(view)
+            PlayersStrip(view, ui, onToggleMutePeer)
             Spacer(Modifier.height(12.dp))
             TrickArea(view)
             Spacer(Modifier.height(12.dp))
@@ -291,7 +302,7 @@ private fun HeaderBar(view: PlayerView, onLeave: () -> Unit, onOpenHistory: () -
  * para nenhuma linha ficar com uma celula solta ocupando um quinto da tela.
  */
 @Composable
-private fun PlayersStrip(view: PlayerView) {
+private fun PlayersStrip(view: PlayerView, ui: UiState?, onToggleMutePeer: (Int) -> Unit) {
     val ids = view.order
     if (ids.isEmpty()) return
 
@@ -307,7 +318,7 @@ private fun PlayersStrip(view: PlayerView) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 linha.forEach { id ->
-                    PlayerSlot(view, id, Modifier.weight(1f).fillMaxHeight())
+                    PlayerSlot(view, id, Modifier.weight(1f).fillMaxHeight(), ui, onToggleMutePeer)
                 }
                 // Linha incompleta: o vazio entra como peso, para as celulas
                 // preenchidas manterem a mesma largura das outras linhas.
@@ -319,12 +330,21 @@ private fun PlayersStrip(view: PlayerView) {
 
 /** Nome, coracoes e previsao de um jogador. Estreito: cabe em 1/5 da tela. */
 @Composable
-private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
+private fun PlayerSlot(
+    view: PlayerView,
+    id: Int,
+    modifier: Modifier,
+    ui: UiState?,
+    onToggleMutePeer: (Int) -> Unit,
+) {
     val p = view.players.first { it.id == id }
     val isTurn = view.currentPlayerId == id
     val souEu = id == view.me
     val bid = view.bids[id]
     val won = view.tricksWon[id] ?: 0
+    // Assento da sala carrega o estado de voz; a PlayerView da Engine nao sabe de voz.
+    val seat = ui?.lobby?.seats?.firstOrNull { it.id == id }
+    val canMute = ui != null && seat != null && seat.inVoice && !souEu && ui.voice.connected
 
     Box(
         modifier = modifier
@@ -336,7 +356,9 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
                     souEu -> Modifier.border(1.5.dp, Color(0x66FFFFFF), RoundedCornerShape(10.dp))
                     else -> Modifier
                 }
-            ),
+            )
+            // Tocar num vizinho que esta na voz silencia so no meu aparelho.
+            .then(if (canMute) Modifier.clickable { onToggleMutePeer(id) } else Modifier),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp),
@@ -351,7 +373,10 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
                 textAlign = TextAlign.Center,
                 color = if (p.alive) Color.White else inkDim(0.4f),
             )
-            Text("♥ ${p.lives}", fontSize = 12.sp, maxLines = 1, color = Ink)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("♥ ${p.lives}", fontSize = 12.sp, maxLines = 1, color = Ink)
+                if (ui != null && seat != null) VoiceBadge(seat, ui, size = 12.dp)
+            }
             Text(
                 if (bid == null) "—" else "$won/$bid",
                 fontSize = 14.sp,

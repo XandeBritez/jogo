@@ -20,8 +20,17 @@
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />
 
+    <!-- Chat de voz da sala WiFi. RECORD_AUDIO e pedida em runtime, so quando o
+         jogador entra na voz: pedir microfone na abertura de um jogo de cartas
+         assusta. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <uses-feature
         android:name="android.hardware.bluetooth"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
         android:required="false" />
 
     <application

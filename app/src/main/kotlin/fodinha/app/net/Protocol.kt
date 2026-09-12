@@ -20,7 +20,16 @@ data class LobbyInfo(
 )
 
 @Serializable
-data class LobbySeat(val id: Int, val name: String, val isBot: Boolean, val connected: Boolean)
+data class LobbySeat(
+    val id: Int,
+    val name: String,
+    val isBot: Boolean,
+    val connected: Boolean,
+    /** Esta no chat de voz da sala. So faz sentido em sala WiFi. */
+    val inVoice: Boolean = false,
+    /** Microfone fechado por vontade propria. */
+    val micMuted: Boolean = false,
+)
 
 /** Cliente -> host. */
 @Serializable
@@ -37,14 +46,29 @@ sealed interface ClientMsg {
 
     @Serializable
     data object AddBot : ClientMsg
+
+    // Chat de voz. So o controle passa por aqui: o audio vai por UDP, num
+    // canal proprio, para nao disputar o socket do jogo.
+
+    @Serializable
+    data object VoiceJoin : ClientMsg
+
+    @Serializable
+    data object VoiceLeave : ClientMsg
+
+    @Serializable
+    data class VoiceMic(val muted: Boolean) : ClientMsg
 }
 
 /** Host -> cliente. */
 @Serializable
 sealed interface HostMsg {
-    /** Confirma o assento atribuido ao cliente. */
+    /**
+     * Confirma o assento atribuido ao cliente. `voicePort` e a porta UDP do
+     * chat de voz no host; 0 quando a sala nao oferece voz (Bluetooth, local).
+     */
     @Serializable
-    data class Welcome(val playerId: Int, val isOwner: Boolean) : HostMsg
+    data class Welcome(val playerId: Int, val isOwner: Boolean, val voicePort: Int = 0) : HostMsg
 
     @Serializable
     data class Lobby(val info: LobbyInfo) : HostMsg

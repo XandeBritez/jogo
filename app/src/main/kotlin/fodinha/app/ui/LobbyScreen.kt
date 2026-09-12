@@ -2,6 +2,7 @@ package fodinha.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,10 @@ fun LobbyScreen(
     onRemoveBot: () -> Unit,
     onStart: () -> Unit,
     onLeave: () -> Unit,
+    onJoinVoice: () -> Unit = {},
+    onLeaveVoice: () -> Unit = {},
+    onToggleMic: () -> Unit = {},
+    onToggleMutePeer: (Int) -> Unit = {},
 ) {
     val lobby = ui.lobby
     val seats = lobby?.seats.orEmpty()
@@ -91,6 +96,9 @@ fun LobbyScreen(
                 }
             }
 
+            VoiceGap(ui, 14.dp)
+            VoiceBar(ui, onJoin = onJoinVoice, onLeave = onLeaveVoice, onToggleMic = onToggleMic)
+
             Spacer(Modifier.height(18.dp))
             Text(
                 "jogadores (${seats.size}/$MAX_SEATS)",
@@ -113,6 +121,10 @@ fun LobbyScreen(
                         else -> Color(0xFFFF8A80)
                     },
                     me = seat.id == ui.myId,
+                    badge = { VoiceBadge(seat, ui, size = 18.dp) },
+                    // Tocar num vizinho que esta na voz silencia so no meu aparelho.
+                    onClick = if (seat.inVoice && seat.id != ui.myId && ui.voice.connected)
+                        ({ onToggleMutePeer(seat.id) }) else null,
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -179,7 +191,14 @@ fun LobbyScreen(
 
 /** Assento: bolinha de estado, nome e etiqueta. */
 @Composable
-private fun SeatRow(name: String, tag: String, dot: Color, me: Boolean) {
+private fun SeatRow(
+    name: String,
+    tag: String,
+    dot: Color,
+    me: Boolean,
+    badge: @Composable () -> Unit = {},
+    onClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -188,6 +207,7 @@ private fun SeatRow(name: String, tag: String, dot: Color, me: Boolean) {
                 if (me) Modifier.border(1.5.dp, Color(0x66FFFFFF), RoundedCornerShape(10.dp))
                 else Modifier
             )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -203,7 +223,10 @@ private fun SeatRow(name: String, tag: String, dot: Color, me: Boolean) {
                 maxLines = 1,
             )
         }
-        Text(tag, color = inkDim(0.6f), fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            badge()
+            Text(tag, color = inkDim(0.6f), fontSize = 13.sp)
+        }
     }
 }
 

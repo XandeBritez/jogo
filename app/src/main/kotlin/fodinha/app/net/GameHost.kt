@@ -40,7 +40,15 @@ class GameHost(
         var isBot: Boolean,
         var connected: Boolean,
         val sink: (suspend (HostMsg) -> Unit)?,
+        var inVoice: Boolean = false,
+        var micMuted: Boolean = false,
     )
+
+    /**
+     * Porta UDP do chat de voz, anunciada no Welcome. Zero quando a sala nao
+     * tem voz: o relay so existe em sala WiFi, e quem o abre e o ViewModel.
+     */
+    var voicePort: Int = 0
 
     private val seats = mutableListOf<Seat>()
     private val mutex = Mutex()
@@ -130,14 +138,26 @@ class GameHost(
     }
 
     private suspend fun markDisconnected(id: Int) = mutex.withLock {
-        seats.firstOrNull { it.id == id }?.connected = false
+        seats.firstOrNull { it.id == id }?.let {
+            it.connected = false
+            // Caiu do socket, caiu da voz: o relay expira sozinho, mas a lista
+            // dos outros nao pode ficar mostrando um microfone fantasma.
+            it.inVoice = false
+            it.micMuted = false
+        }
+        broadcastLobbyLocked()
+    }
+
+    private suspend fun setVoice(playerId: Int, change: (Seat) -> Unit) = mutex.withLock {
+        val seat = seats.firstOrNull { it.id == playerId && !it.isBot } ?: return@withLock
+        change(seat)
         broadcastLobbyLocked()
     }
 
     /** Manda o estado atual a quem acabou de entrar ou de reconectar. */
     private suspend fun greetLocked(id: Int) {
         val s = seats.firstOrNull { it.id == id } ?: return
-        s.sink?.invoke(HostMsg.Welcome(id, isOwner = id == 0))
+        s.sink?.invoke(HostMsg.Welcome(id, isOwner = id == 0, voicePort = voicePort))
         val g = state
         if (g == null) broadcastLobbyLocked() else s.sink?.invoke(HostMsg.View(g.viewFor(id)))
     }
@@ -151,6 +171,13 @@ class GameHost(
             }
 
             ClientMsg.AddBot -> if (playerId == 0) addBot()
+
+            // Estado de voz vive aqui, no mesmo canal ordenado das jogadas, para
+            // a lista de assentos de todo mundo mostrar quem esta na voz. O
+            // audio em si nunca passa por este caminho.
+            ClientMsg.VoiceJoin -> setVoice(playerId) { it.inVoice = true }
+            ClientMsg.VoiceLeave -> setVoice(playerId) { it.inVoice = false; it.micMuted = false }
+            is ClientMsg.VoiceMic -> setVoice(playerId) { it.micMuted = msg.muted }
 
             ClientMsg.StartGame -> if (playerId == 0) startGame()
 
@@ -339,7 +366,7 @@ class GameHost(
     private suspend fun broadcastLobbyLocked() {
         val info = LobbyInfo(
             roomName = roomName,
-            seats = seats.map { LobbySeat(it.id, it.name, it.isBot, it.connected) },
+            seats = seats.map { LobbySeat(it.id, it.name, it.isBot, it.connected, it.inVoice, it.micMuted) },
             started = started,
         )
         for (seat in seats) seat.sink?.invoke(HostMsg.Lobby(info))

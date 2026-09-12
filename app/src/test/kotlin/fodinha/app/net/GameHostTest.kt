@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,9 +39,16 @@ class GameHostTest {
 
         val outbox = ConcurrentHashMap<Int, MutableList<HostMsg>>()
         private var joiner: (suspend (String) -> Int)? = null
+        private var leaver: (suspend (Int) -> Unit)? = null
 
         override suspend fun start(onJoin: suspend (String) -> Int, onLeave: suspend (Int) -> Unit) {
             joiner = onJoin
+            leaver = onLeave
+        }
+
+        /** Simula o socket do cliente caindo. */
+        suspend fun drop(playerId: Int) {
+            leaver!!(playerId)
         }
 
         override suspend fun sendTo(playerId: Int, msg: HostMsg) {
@@ -247,6 +255,132 @@ class GameHostTest {
             "rodada nao avancou sozinha",
             vistas.any { it.roundIndex > 0 },
         )
+
+        host.close()
+    }
+
+    // ---------- chat de voz: so o plano de controle; o audio e UDP a parte ----------
+
+    private fun List<HostMsg>.lastLobby() = filterIsInstance<HostMsg.Lobby>().last().info
+
+    @Test
+    fun `porta de voz viaja no Welcome`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        host.voicePort = 43210
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+
+        transport.join("Visitante")
+        advanceUntilIdle()
+
+        val welcome = transport.msgsFor(1).filterIsInstance<HostMsg.Welcome>().first()
+        assertEquals(43210, welcome.voicePort)
+
+        host.close()
+    }
+
+    @Test
+    fun `entrar na voz, fechar o mic e sair aparece na lista de todo mundo`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+
+        transport.join("Visitante")
+        advanceUntilIdle()
+
+        transport.send(1, ClientMsg.VoiceJoin)
+        advanceUntilIdle()
+        var seat = transport.msgsFor(1).lastLobby().seats[1]
+        assertTrue("entrou na voz mas a lista nao mostra", seat.inVoice)
+        assertFalse(seat.micMuted)
+
+        transport.send(1, ClientMsg.VoiceMic(muted = true))
+        advanceUntilIdle()
+        seat = transport.msgsFor(1).lastLobby().seats[1]
+        assertTrue(seat.inVoice)
+        assertTrue("fechou o mic mas a lista nao mostra", seat.micMuted)
+
+        transport.send(1, ClientMsg.VoiceLeave)
+        advanceUntilIdle()
+        seat = transport.msgsFor(1).lastLobby().seats[1]
+        assertFalse(seat.inVoice)
+        assertFalse("sair da voz tem que zerar o mic tambem", seat.micMuted)
+
+        host.close()
+    }
+
+    @Test
+    fun `cair do socket tira da voz, sem microfone fantasma`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+
+        transport.join("Visitante")
+        advanceUntilIdle()
+        transport.send(1, ClientMsg.VoiceJoin)
+        advanceUntilIdle()
+        assertTrue(transport.msgsFor(1).lastLobby().seats[1].inVoice)
+
+        transport.drop(1)
+        advanceUntilIdle()
+
+        // O dono continua recebendo o lobby; o assento 1 caiu e saiu da voz.
+        val ownerLobby = generateSequence { host.localInbox.tryReceive().getOrNull() }
+            .filterIsInstance<HostMsg.Lobby>().last().info
+        val seat = ownerLobby.seats[1]
+        assertFalse(seat.connected)
+        assertFalse("caiu do socket mas ficou na voz", seat.inVoice)
+
+        host.close()
+    }
+
+    @Test
+    fun `dono da sala entra na voz pelo caminho local`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+        transport.join("Visitante")
+        advanceUntilIdle()
+
+        // O dono nao passa pelo transporte: o ViewModel chama handle(0, ...) direto.
+        host.handle(0, ClientMsg.VoiceJoin)
+        advanceUntilIdle()
+        host.handle(0, ClientMsg.VoiceMic(muted = true))
+        advanceUntilIdle()
+
+        // E o visitante, do outro lado, ve o dono na voz com o mic fechado.
+        val seat = transport.msgsFor(1).lastLobby().seats[0]
+        assertTrue("dono entrou na voz mas o visitante nao ve", seat.inVoice)
+        assertTrue(seat.micMuted)
+
+        host.close()
+    }
+
+    @Test
+    fun `bot nao entra na voz`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+        host.addBot("Robo")
+        advanceUntilIdle()
+
+        // Mensagem forjada em nome do bot (assento 1): tem que ser ignorada.
+        transport.send(1, ClientMsg.VoiceJoin)
+        advanceUntilIdle()
+
+        val lobby = generateSequence { host.localInbox.tryReceive().getOrNull() }
+            .filterIsInstance<HostMsg.Lobby>().last().info
+        assertFalse(lobby.seats[1].inVoice)
 
         host.close()
     }

@@ -153,9 +153,15 @@ Instalar num aparelho:
   200 sementes cada) checando: baralho nunca estoura, nenhuma carta duplicada, soma das
   previsões nunca iguala as cartas, vazas batem com as cartas, vidas só caem, jogo sempre
   termina com ranking completo, e `PlayerView` nunca vaza mão alheia.
-- ✅ `:app:testDebugUnitTest` — 6 testes do host com transporte falso, exercitando o caminho
+- ✅ `:app:testDebugUnitTest` — 13 testes do host com transporte falso, exercitando o caminho
   remoto sem aparelho: entrada de cliente, `Welcome`, lobby, partida andando, redação da view
-  enviada pela rede, rodada emendando sozinha depois do resumo e ida-e-volta da serialização.
+  enviada pela rede, rodada emendando sozinha depois do resumo, ida-e-volta da serialização e o
+  plano de controle da voz (porta no `Welcome`, entrar/mic/sair refletidos na lista, queda do
+  socket tirando da voz, bot não entra).
+- ⚠️ **Áudio do chat de voz não rodou em aparelho** — o plano de controle está coberto por
+  teste, mas captura, relay UDP e mistura só se provam com dois celulares na mesma rede, e
+  não havia nenhum plugado na hora. Eco entre dois aparelhos na mesma mesa é o risco a
+  observar: o cancelador do aparelho ajuda, mas não é garantia.
 - ✅ `:app:assembleDebug` — APK compila.
 - ✅ **Rodado em aparelho real** (Xiaomi 22101320G / Redmi Note 12 Pro, via USB). Partida contra
   bot jogada de ponta a ponta, sem crash:
@@ -167,6 +173,35 @@ Instalar num aparelho:
 - ⚠️ **Menu novo e tela de opções**: compilam e passam nos testes, mas **não rodaram em aparelho** — nenhum device estava conectado. O relato de partida acima é do fluxo antigo de abertura; as regras e a mesa não mudaram, mas o menu, os diálogos de sala e as opções ainda precisam de um olhar num celular de verdade.
 - ✅ **WiFi e Bluetooth** — rodados entre dois aparelhos físicos (Xiaomi 22101320G e Samsung
   SM-A146M): sala aberta num, cliente entrando pelo outro, partida andando nos dois modos.
+
+## Chat de voz (só sala WiFi)
+
+Quem abre a sala WiFi abre junto um **relay UDP** (`net/Voice.kt`, `VoiceRelay`): cada aparelho
+manda um fluxo só, para o host, e o host devolve o que recebeu a todos os outros. Não há
+mistura no host — quem mistura é cada ouvinte (`VoiceChat`), somando o PCM de cada vizinho.
+Assim o host não vira gargalo de CPU, e **silenciar alguém é decisão local**: é o meu ouvido,
+não precisa passar pela rede.
+
+- Áudio: PCM 16 bits, mono, 16 kHz, quadros de 20 ms, por UDP num canal próprio. Fora do
+  socket JSON de propósito: jogada atrasada por causa de áudio seria inaceitável, áudio
+  perdido é só um estalo. PCM cru porque 32 kB/s por falante é trocado numa LAN e um codec
+  puxaria dependência nativa.
+- Controle (entrar, sair, mic aberto/fechado) vai pelo protocolo JSON normal
+  (`ClientMsg.VoiceJoin/VoiceLeave/VoiceMic`), para chegar em ordem e aparecer na lista de
+  assentos de todo mundo (`LobbySeat.inVoice`, `micMuted`). A porta do relay viaja no
+  `Welcome`; zero significa sala sem voz.
+- Captura com `VOICE_COMMUNICATION` + cancelador de eco e supressor de ruído do aparelho,
+  em `MODE_IN_COMMUNICATION` com viva-voz: celular na mesa, não no ouvido. Quadros abaixo
+  de um limiar de energia não são enviados (silêncio não viaja).
+- Na tela: barra **Entrar na voz / Mic aberto / Sair da voz** na sala e na mesa; microfone ao
+  lado de cada jogador (dourado falando, vermelho fechou o próprio, riscado quando **você**
+  o silenciou); **tocar no jogador silencia só no seu aparelho**.
+- `RECORD_AUDIO` é pedida no toque em "Entrar na voz", não na abertura do app.
+- Contra bots e por Bluetooth a barra **some** — não fica desabilitada. RFCOMM já carrega o
+  jogo; áudio ali disputaria o mesmo canal serial.
+
+Quem cai do socket sai da voz na hora (sem microfone fantasma na lista); no relay o
+endereço expira sozinho depois de 5 s sem pacote.
 
 ## Permissões
 

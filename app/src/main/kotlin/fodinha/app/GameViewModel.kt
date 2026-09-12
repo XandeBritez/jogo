@@ -13,8 +13,12 @@ import fodinha.app.net.GameHost
 import fodinha.app.net.HostMsg
 import fodinha.app.net.LobbyInfo
 import fodinha.app.net.TransportKind
+import fodinha.app.net.VoiceChat
+import fodinha.app.net.VoiceRelay
+import fodinha.app.net.VoiceState
 import fodinha.app.net.WifiClientTransport
 import fodinha.app.net.WifiHostTransport
+import java.net.InetAddress
 import fodinha.app.net.bluetoothAdapter
 import fodinha.app.net.discoverRooms
 import fodinha.app.ui.GameSettings
@@ -42,6 +46,9 @@ data class UiState(
     val error: String? = null,
     val connecting: Boolean = false,
     val settings: GameSettings = GameSettings(),
+    /** Chat de voz. So existe em sala WiFi; `voicePort` zero = sala sem voz. */
+    val voicePort: Int = 0,
+    val voice: VoiceState = VoiceState(),
 )
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
@@ -56,6 +63,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private var host: GameHost? = null
     private var client: ClientTransport? = null
     private var discoveryJob: Job? = null
+
+    /** Relay UDP de voz: so quando este aparelho e host de sala WiFi. */
+    private var voiceRelay: VoiceRelay? = null
+    private var voiceChat: VoiceChat? = null
+    private var voiceJob: Job? = null
+
+    /** Onde fica o relay: o host da sala em que entrei, ou eu mesmo. */
+    private var voiceHost: InetAddress = InetAddress.getLoopbackAddress()
 
     fun setName(name: String) {
         store.savePlayerName(name)
@@ -91,8 +106,17 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         val h = newHost(roomName)
         val transport = WifiHostTransport(getApplication(), viewModelScope, roomName)
         h.attachRemote(transport)
+        // A voz nasce junto com a sala: o relay tem que existir antes do primeiro
+        // Welcome, que e onde a porta viaja.
+        val relay = VoiceRelay().also { it.start() }
+        voiceRelay = relay
+        h.voicePort = relay.port
+        voiceHost = InetAddress.getLoopbackAddress()
         _ui.update {
-            it.copy(kind = TransportKind.WIFI, isHost = true, myId = 0, screen = Screen.LOBBY)
+            it.copy(
+                kind = TransportKind.WIFI, isHost = true, myId = 0, screen = Screen.LOBBY,
+                voicePort = relay.port,
+            )
         }
         viewModelScope.launch { h.publishLobby() }
     }
@@ -112,6 +136,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun joinWifiRoom(room: DiscoveredRoom) {
+        voiceHost = room.host
         connectAs(TransportKind.WIFI) {
             WifiClientTransport(room.host, room.port, _ui.value.playerName)
         }
@@ -180,7 +205,9 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applyHostMsg(msg: HostMsg) {
         when (msg) {
-            is HostMsg.Welcome -> _ui.update { it.copy(myId = msg.playerId, connecting = false) }
+            is HostMsg.Welcome -> _ui.update {
+                it.copy(myId = msg.playerId, connecting = false, voicePort = msg.voicePort)
+            }
             is HostMsg.Lobby -> _ui.update { it.copy(lobby = msg.info, connecting = false) }
             is HostMsg.View -> _ui.update {
                 it.copy(view = msg.view, screen = Screen.TABLE, connecting = false)
@@ -227,11 +254,61 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun closeAll() {
+        // Sem avisar o host: a sala esta sendo desmontada, nao ha para quem.
+        leaveVoice(notify = false)
+        voiceRelay?.close()
+        voiceRelay = null
         host?.close()
         host = null
         client?.close()
         client = null
         stopRoomDiscovery()
+    }
+
+    // ---------- Voz (so sala WiFi) ----------
+
+    /** Entra no chat de voz. Precisa de RECORD_AUDIO concedida; quem pede e a UI. */
+    fun joinVoice() {
+        val st = _ui.value
+        if (st.kind != TransportKind.WIFI || st.voicePort == 0 || voiceChat != null) return
+        val chat = VoiceChat(getApplication(), voiceHost, st.voicePort, st.myId)
+        voiceChat = chat
+        chat.start()
+        voiceJob = viewModelScope.launch {
+            chat.state.collect { v -> _ui.update { it.copy(voice = v) } }
+        }
+        if (chat.state.value.connected) {
+            send(ClientMsg.VoiceJoin)
+        } else {
+            // Nao abriu: avisa e desfaz, para o botao voltar a "entrar".
+            val why = chat.state.value.error
+            _ui.update { it.copy(error = why ?: "chat de voz nao abriu") }
+            leaveVoice()
+        }
+    }
+
+    fun leaveVoice() = leaveVoice(notify = true)
+
+    private fun leaveVoice(notify: Boolean) {
+        val chat = voiceChat ?: return
+        voiceJob?.cancel()
+        voiceJob = null
+        chat.close()
+        voiceChat = null
+        _ui.update { it.copy(voice = VoiceState()) }
+        if (notify) send(ClientMsg.VoiceLeave)
+    }
+
+    fun toggleMic() {
+        val chat = voiceChat ?: return
+        val muted = !chat.state.value.micMuted
+        chat.setMicMuted(muted)
+        send(ClientMsg.VoiceMic(muted))
+    }
+
+    /** Silencia (ou devolve o som de) um vizinho. So no meu aparelho. */
+    fun toggleMutePeer(id: Int) {
+        voiceChat?.toggleMutePeer(id)
     }
 
     override fun onCleared() {
