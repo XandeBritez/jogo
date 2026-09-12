@@ -72,11 +72,20 @@ class GameHost(
     /** Fila de mensagens para o jogador local (o dono do aparelho). */
     val localInbox = Channel<HostMsg>(Channel.BUFFERED)
 
+    /**
+     * Depois do close, nada mais entra nem sai. Precisa existir porque o
+     * transporte avisa a queda de cada cliente DEPOIS de fechado - o socket
+     * cai, o laco de leitura acorda e chama onLeave - e esse aviso atrasado
+     * nao pode tentar falar com uma fila ja fechada.
+     */
+    @Volatile private var closed = false
+
     private var remote: HostTransport? = null
 
     /** Assento 0 e sempre o dono do aparelho. */
     fun createOwnerSeat(): Int {
-        seats += Seat(0, ownerName, isBot = false, connected = true, sink = { localInbox.send(it) })
+        // trySend, nao send: fila fechada vira mensagem perdida, nao excecao.
+        seats += Seat(0, ownerName, isBot = false, connected = true, sink = { localInbox.trySend(it) })
         return 0
     }
 
@@ -138,6 +147,7 @@ class GameHost(
     }
 
     private suspend fun markDisconnected(id: Int) = mutex.withLock {
+        if (closed) return@withLock
         seats.firstOrNull { it.id == id }?.let {
             it.connected = false
             // Caiu do socket, caiu da voz: o relay expira sozinho, mas a lista
@@ -163,6 +173,7 @@ class GameHost(
     }
 
     suspend fun handle(playerId: Int, msg: ClientMsg) {
+        if (closed) return
         when (msg) {
             is ClientMsg.Hello -> mutex.withLock {
                 seats.firstOrNull { it.id == playerId }?.name = msg.name
@@ -375,6 +386,7 @@ class GameHost(
     suspend fun publishLobby() = mutex.withLock { broadcastLobbyLocked() }
 
     fun close() {
+        closed = true
         turnJob?.cancel()
         turnJob = null
         driveJob?.cancel()

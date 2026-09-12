@@ -21,12 +21,16 @@ class SocketPipe(
     private val reader: BufferedReader = input.bufferedReader()
     private val writer: BufferedWriter = output.bufferedWriter()
 
+    /** Socket ja fechado (o outro lado saiu, ou eu sai) engole a escrita. */
     suspend fun writeLine(line: String) = withContext(Dispatchers.IO) {
         synchronized(writer) {
-            writer.write(line)
-            writer.write("\n")
-            writer.flush()
+            runCatching {
+                writer.write(line)
+                writer.write("\n")
+                writer.flush()
+            }
         }
+        Unit
     }
 
     /** Bloqueia ate chegar uma linha. null = outro lado fechou. */

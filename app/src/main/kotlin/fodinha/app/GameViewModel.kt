@@ -196,6 +196,8 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             launch { c.inbound.collect { applyHostMsg(it) } }
             runCatching { c.connect() }.onFailure { e ->
+                // Se eu mesmo ja sai, o socket fechou por minha causa: nao e falha.
+                if (client !== c) return@onFailure
                 _ui.update {
                     it.copy(connecting = false, error = "Falha ao conectar: ${e.message}", screen = Screen.HOME)
                 }

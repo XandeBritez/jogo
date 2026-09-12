@@ -365,6 +365,23 @@ class GameHostTest {
     }
 
     @Test
+    fun `cliente cair depois do host fechar nao explode`() = runTest {
+        val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
+        host.createOwnerSeat()
+        val transport = FakeHostTransport(this)
+        host.attachRemote(transport)
+        advanceUntilIdle()
+        transport.join("Visitante")
+        advanceUntilIdle()
+
+        host.close()
+        // O transporte so avisa a queda depois que o socket fecha - ou seja,
+        // depois do close. Isso derrubava o app com a fila local ja fechada.
+        transport.drop(1)
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `bot nao entra na voz`() = runTest {
         val host = GameHost(this, "Mesa", "Dono", botDelayMillis = 0)
         host.createOwnerSeat()

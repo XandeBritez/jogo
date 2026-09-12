@@ -153,7 +153,7 @@ Instalar num aparelho:
   200 sementes cada) checando: baralho nunca estoura, nenhuma carta duplicada, soma das
   previsões nunca iguala as cartas, vazas batem com as cartas, vidas só caem, jogo sempre
   termina com ranking completo, e `PlayerView` nunca vaza mão alheia.
-- ✅ `:app:testDebugUnitTest` — 13 testes do host com transporte falso, exercitando o caminho
+- ✅ `:app:testDebugUnitTest` — 14 testes do host com transporte falso, exercitando o caminho
   remoto sem aparelho: entrada de cliente, `Welcome`, lobby, partida andando, redação da view
   enviada pela rede, rodada emendando sozinha depois do resumo, ida-e-volta da serialização e o
   plano de controle da voz (porta no `Welcome`, entrar/mic/sair refletidos na lista, queda do
