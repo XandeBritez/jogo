@@ -69,8 +69,19 @@ de aparelhos pareados) mora nos dialogos dos dois atalhos, nao mais inline na te
 | Baralho | desenho do verso (`DeckBackArt`), 5 opcoes |
 | Cor de fundo das cartas e baloes | paleta de 20; a tinta do naipe clareia sozinha em fundo escuro |
 | Tamanho do Texto | escala 1.0 / 1.18 / 1.35 aplicada por `scaled()` |
+| Tema | claro, escuro ou seguir o modo escuro do aparelho (padrão) |
+| Alto contraste | fecha o fundo, tira a transparência do texto secundário, engrossa as bordas e **devolve a carta ao branco**, ignorando a cor escolhida |
 | Animacao Rapida | encurta as transicoes da carta |
 | Seu nome | nome do assento, tambem editavel pelo menu |
+
+As cores das três telas saem de uma paleta só (`MenuPalette`, em `ui/MenuStyle.kt`): há uma
+tabela clara e uma escura, e a versão de alto contraste é **derivada** da que estiver valendo,
+em vez de uma quarta tabela para manter em sincronia. Os nomes antigos (`Slate`, `Ink`,
+`MenuGold`…) continuam valendo como atalhos que leem a paleta em vigor, então as telas não
+precisaram de uma troca de cor linha a linha.
+
+A tela de opções é escura nos dois temas — é a identidade dela; o que muda é o quanto fecha.
+As cartas também seguem claras no tema escuro: baralho de verdade é branco.
 
 Nada disso toca a Engine: regra e a mesma para todo mundo na mesa.
 
@@ -154,8 +165,8 @@ Instalar num aparelho:
   - Rodada 2 (normal, 2 cartas): mão visível, manilha K derivada da virada J♦, K♥ destacado
     como manilha, dealer rotacionado, previsões 0/1/2 todas liberadas para quem não é o último.
 - ⚠️ **Menu novo e tela de opções**: compilam e passam nos testes, mas **não rodaram em aparelho** — nenhum device estava conectado. O relato de partida acima é do fluxo antigo de abertura; as regras e a mesa não mudaram, mas o menu, os diálogos de sala e as opções ainda precisam de um olhar num celular de verdade.
-- ⚠️ **WiFi**: precisa de duas instâncias na mesma LAN.
-- ⚠️ **Bluetooth**: não funciona em emulador. Exige dois aparelhos físicos pareados.
+- ✅ **WiFi e Bluetooth** — rodados entre dois aparelhos físicos (Xiaomi 22101320G e Samsung
+  SM-A146M): sala aberta num, cliente entrando pelo outro, partida andando nos dois modos.
 
 ## Permissões
 

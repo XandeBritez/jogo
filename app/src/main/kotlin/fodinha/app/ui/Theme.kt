@@ -37,11 +37,15 @@ private val LightColors = lightColorScheme(
     onSurfaceVariant = Cream,
 )
 
-/** Mesa de feltro nos dois temas: o jogo e o mesmo de dia ou de noite. */
+/**
+ * Mesa de feltro nos dois temas: o jogo e o mesmo de dia ou de noite, so muda
+ * o quanto o feltro fecha. Quem decide claro ou escuro e a opcao do jogador,
+ * nao o Android direto - por isso `dark` chega de fora.
+ */
 @Composable
-fun FodinhaTheme(content: @Composable () -> Unit) {
+fun FodinhaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        colorScheme = if (dark) DarkColors else LightColors,
         content = content,
     )
 }

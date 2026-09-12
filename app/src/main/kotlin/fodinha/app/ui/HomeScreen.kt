@@ -302,7 +302,7 @@ private fun NameBox(name: String, modifier: Modifier = Modifier, onClick: () -> 
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("jogando como", color = Ink.copy(alpha = 0.75f), fontSize = 13.sp)
+        Text("jogando como", color = inkDim(0.75f), fontSize = 13.sp)
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier
@@ -327,7 +327,7 @@ private fun NameBox(name: String, modifier: Modifier = Modifier, onClick: () -> 
             Text("✎", color = MenuGold, fontSize = 18.sp)
         }
         Spacer(Modifier.height(4.dp))
-        Text("toque para trocar", color = Ink.copy(alpha = 0.6f), fontSize = 11.sp)
+        Text("toque para trocar", color = inkDim(0.6f), fontSize = 11.sp)
     }
 }
 

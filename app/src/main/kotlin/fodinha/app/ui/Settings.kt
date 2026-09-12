@@ -14,6 +14,13 @@ enum class DeckBack(val label: String, val base: Color, val ink: Color) {
     FELTRO("Feltro", Color(0xFF0E4A32), Color(0xFFD9A441)),
 }
 
+/** Tema da mesa. SISTEMA segue o modo escuro do Android. */
+enum class ThemeMode(val label: String) {
+    SISTEMA("Seguir o sistema"),
+    CLARO("Claro"),
+    ESCURO("Escuro"),
+}
+
 /** Escala da fonte dos baloes, botoes e perguntas. */
 enum class TextScale(val label: String, val factor: Float) {
     NORMAL("Normal", 1.0f),
@@ -30,6 +37,13 @@ data class GameSettings(
     val cardColor: Color = Color(0xFFFDFBF4),
     val textScale: TextScale = TextScale.NORMAL,
     val fastAnimation: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.SISTEMA,
+    /**
+     * Alto contraste: escurece a mesa, tira a transparencia do texto
+     * secundario, engrossa as bordas e manda a carta de volta ao branco,
+     * ignorando a cor escolhida.
+     */
+    val highContrast: Boolean = false,
 )
 
 /** Paleta do dialogo "Selecionar uma cor", na ordem do print. */
@@ -54,6 +68,9 @@ class SettingsStore(context: Context) {
         textScale = runCatching { TextScale.valueOf(prefs.getString(KEY_SCALE, null) ?: "") }
             .getOrDefault(TextScale.NORMAL),
         fastAnimation = prefs.getBoolean(KEY_FAST, false),
+        themeMode = runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "") }
+            .getOrDefault(ThemeMode.SISTEMA),
+        highContrast = prefs.getBoolean(KEY_CONTRAST, false),
     )
 
     fun save(s: GameSettings) {
@@ -62,6 +79,8 @@ class SettingsStore(context: Context) {
             .putInt(KEY_COLOR, s.cardColor.toArgb())
             .putString(KEY_SCALE, s.textScale.name)
             .putBoolean(KEY_FAST, s.fastAnimation)
+            .putString(KEY_THEME, s.themeMode.name)
+            .putBoolean(KEY_CONTRAST, s.highContrast)
             .apply()
     }
 
@@ -74,6 +93,8 @@ class SettingsStore(context: Context) {
         const val KEY_COLOR = "cardColor"
         const val KEY_SCALE = "textScale"
         const val KEY_FAST = "fastAnim"
+        const val KEY_THEME = "themeMode"
+        const val KEY_CONTRAST = "highContrast"
         const val KEY_NAME = "playerName"
     }
 }

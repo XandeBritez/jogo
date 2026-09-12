@@ -73,7 +73,7 @@ fun LobbyScreen(
                     TransportKind.WIFI -> "sala WiFi na rede local"
                     TransportKind.BLUETOOTH -> "sala Bluetooth"
                 },
-                color = Ink.copy(alpha = 0.75f),
+                color = inkDim(0.75f),
                 fontSize = 14.sp,
                 fontStyle = FontStyle.Italic,
             )
@@ -94,7 +94,7 @@ fun LobbyScreen(
             Spacer(Modifier.height(18.dp))
             Text(
                 "jogadores (${seats.size}/$MAX_SEATS)",
-                color = Ink.copy(alpha = 0.8f),
+                color = inkDim(0.8f),
                 fontSize = 14.sp,
             )
             Spacer(Modifier.height(8.dp))
@@ -135,7 +135,7 @@ fun LobbyScreen(
                 ) {
                     Text(
                         "Comecar",
-                        color = if (canStart) Color.White else Ink.copy(alpha = 0.4f),
+                        color = if (canStart) Color.White else inkDim(0.4f),
                         fontSize = 28.sp,
                     )
                 }
@@ -143,7 +143,7 @@ fun LobbyScreen(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "precisa de pelo menos 2 jogadores na mesa",
-                        color = Ink.copy(alpha = 0.75f),
+                        color = inkDim(0.75f),
                         fontSize = 13.sp,
                     )
                 }
@@ -203,7 +203,7 @@ private fun SeatRow(name: String, tag: String, dot: Color, me: Boolean) {
                 maxLines = 1,
             )
         }
-        Text(tag, color = Ink.copy(alpha = 0.6f), fontSize = 13.sp)
+        Text(tag, color = inkDim(0.6f), fontSize = 13.sp)
     }
 }
 

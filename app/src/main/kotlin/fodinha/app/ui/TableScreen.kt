@@ -62,9 +62,6 @@ import androidx.compose.ui.unit.isUnspecified
 import fodinha.engine.Phase
 import fodinha.engine.PlayerView
 
-/** Um tom acima do bloco escuro: usado no circulo de previsao habilitado. */
-private val SlateBrightTable = Color(0xFF2A5C3C)
-
 /** Espera do resumo da rodada. Igual ao `roundOverMillis` do host. */
 private const val ROUND_OVER_SECONDS = 5
 
@@ -136,7 +133,7 @@ private fun HistoryList(view: PlayerView) {
         Text(
             "Nada aconteceu ainda.",
             fontSize = 13.sp,
-            color = Ink.copy(alpha = 0.75f),
+            color = inkDim(0.75f),
         )
         return
     }
@@ -144,7 +141,7 @@ private fun HistoryList(view: PlayerView) {
     Text(
         "Mais recente primeiro",
         fontSize = 11.sp,
-        color = Ink.copy(alpha = 0.7f),
+        color = inkDim(0.7f),
     )
     Spacer(Modifier.height(8.dp))
     LazyColumn(
@@ -208,7 +205,7 @@ private fun TurnClock(view: PlayerView) {
                 Text(
                     if (view.phase == Phase.BIDDING) "no fim, previsao sorteada" else "no fim, carta sorteada",
                     fontSize = 11.sp,
-                    color = Ink.copy(alpha = 0.75f),
+                    color = inkDim(0.75f),
                 )
             }
         }
@@ -263,13 +260,13 @@ private fun HeaderBar(view: PlayerView, onLeave: () -> Unit, onOpenHistory: () -
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Ink.copy(alpha = 0.8f),
+                color = inkDim(0.8f),
             )
         }
 
         view.turned?.let { t ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("virada", fontSize = 10.sp, maxLines = 1, color = Ink.copy(alpha = 0.8f))
+                Text("virada", fontSize = 10.sp, maxLines = 1, color = inkDim(0.8f))
                 PlayingCard(t, small = true)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -352,7 +349,7 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color = if (p.alive) Color.White else Ink.copy(alpha = 0.4f),
+                color = if (p.alive) Color.White else inkDim(0.4f),
             )
             Text("♥ ${p.lives}", fontSize = 12.sp, maxLines = 1, color = Ink)
             Text(
@@ -361,7 +358,7 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 color = when {
-                    bid == null -> Ink.copy(alpha = 0.5f)
+                    bid == null -> inkDim(0.5f)
                     won > bid -> Color(0xFFFF8A80)
                     won == bid -> Color(0xFF7FE0A0)
                     else -> Ink
@@ -397,7 +394,7 @@ private fun TrickArea(view: PlayerView) {
         if (view.currentTrick.isEmpty()) {
             Text(
                 if (view.phase == Phase.BIDDING) "Fazendo previsoes..." else "Mesa vazia",
-                color = Ink.copy(alpha = 0.7f),
+                color = inkDim(0.7f),
             )
         } else {
             val porLinha = cartasPorLinha(maxOf(view.order.size, view.currentTrick.size))
@@ -474,7 +471,7 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
             Text(
                 "Soma das previsoes ate agora: ${view.bidSum} de ${view.cardsThisRound}",
                 fontSize = scaled(12.sp),
-                color = Ink.copy(alpha = 0.8f),
+                color = inkDim(0.8f),
             )
             if (view.isMyTurn && view.forbiddenBid != null && view.forbiddenBid in 0..view.cardsThisRound &&
                 !view.legalBids.contains(view.forbiddenBid)
@@ -499,7 +496,7 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
                             modifier = Modifier
                                 .size(56.dp)
                                 .background(
-                                    if (legal) SlateBrightTable else Slate.copy(alpha = 0.45f),
+                                    if (legal) SlateBright else Slate.copy(alpha = 0.45f),
                                     CircleShape,
                                 )
                                 .border(
@@ -518,14 +515,14 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
                                 "$n",
                                 fontWeight = FontWeight.Black,
                                 fontSize = scaled(20.sp),
-                                color = if (legal) Color.White else Ink.copy(alpha = 0.35f),
+                                color = if (legal) Color.White else inkDim(0.35f),
                             )
                         }
                     }
                 }
             } else {
                 val who = view.currentPlayerId?.let { id -> view.players.first { it.id == id }.name }
-                Text("Vez de $who prever...", color = Ink.copy(alpha = 0.85f))
+                Text("Vez de $who prever...", color = inkDim(0.85f))
             }
         }
     }
@@ -545,7 +542,7 @@ private fun TrickRevealPanel(view: PlayerView) {
     Text(
         "Recolhendo a mesa...",
         fontSize = scaled(12.sp),
-        color = Ink.copy(alpha = 0.8f),
+        color = inkDim(0.8f),
     )
 }
 
@@ -615,7 +612,7 @@ private fun NextRoundCountdown(roundIndex: Int) {
             progress = { (left / ROUND_OVER_SECONDS.toFloat()).coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth(),
             color = MenuGold,
-            trackColor = SlateBrightTable,
+            trackColor = SlateBright,
         )
     }
 }
@@ -686,7 +683,7 @@ private fun HandArea(
                         if (view.canPlayBlind) "Sua vez: toque na carta para joga-la."
                         else "Carta virada para fora:\nvoce nao ve a sua.",
                         fontSize = scaled(12.sp),
-                        color = Ink.copy(alpha = 0.9f),
+                        color = inkDim(0.9f),
                     )
                 }
             }
@@ -697,7 +694,7 @@ private fun HandArea(
                     if (view.canPlayBlindAt) "Sua vez: escolha uma posicao. So a mesa dira qual carta era."
                     else "Rodada as cegas: a mao inteira fica no escuro.",
                     fontSize = scaled(12.sp),
-                    color = Ink.copy(alpha = 0.9f),
+                    color = inkDim(0.9f),
                 )
                 Spacer(Modifier.height(8.dp))
                 CardGrid(restantes) { i ->
@@ -709,7 +706,7 @@ private fun HandArea(
                         Text(
                             "${i + 1}",
                             fontSize = scaled(11.sp),
-                            color = Ink.copy(alpha = 0.7f),
+                            color = inkDim(0.7f),
                         )
                     }
                 }

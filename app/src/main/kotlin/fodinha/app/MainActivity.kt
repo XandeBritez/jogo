@@ -25,7 +25,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.isSystemInDarkTheme
 import fodinha.app.ui.FodinhaTheme
+import fodinha.app.ui.LocalMenuPalette
+import fodinha.app.ui.ThemeMode
+import fodinha.app.ui.menuPalette
 import fodinha.app.ui.LocalGameSettings
 import fodinha.app.ui.OptionsScreen
 import fodinha.app.ui.HomeScreen
@@ -42,8 +46,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         requestBluetoothPermissions()
         setContent {
-            FodinhaTheme {
-                App()
+            val vm: GameViewModel = viewModel()
+            val ui by vm.ui.collectAsStateWithLifecycle()
+            val dark = when (ui.settings.themeMode) {
+                ThemeMode.SISTEMA -> isSystemInDarkTheme()
+                ThemeMode.CLARO -> false
+                ThemeMode.ESCURO -> true
+            }
+            FodinhaTheme(dark) {
+                CompositionLocalProvider(
+                    LocalGameSettings provides ui.settings,
+                    LocalMenuPalette provides menuPalette(dark, ui.settings.highContrast),
+                ) {
+                    App(vm, ui)
+                }
             }
         }
     }
@@ -60,8 +76,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun App(vm: GameViewModel = viewModel()) {
-    val ui by vm.ui.collectAsStateWithLifecycle()
+private fun App(vm: GameViewModel, ui: UiState) {
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(ui.error) {
@@ -71,7 +86,6 @@ private fun App(vm: GameViewModel = viewModel()) {
         }
     }
 
-    CompositionLocalProvider(LocalGameSettings provides ui.settings) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = Color.Transparent,
@@ -132,6 +146,5 @@ private fun App(vm: GameViewModel = viewModel()) {
                 )
             }
         }
-    }
     }
 }

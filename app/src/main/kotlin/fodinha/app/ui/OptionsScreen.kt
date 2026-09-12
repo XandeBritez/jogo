@@ -36,11 +36,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val OptBg = Color(0xFF2B2B2B)
-private val OptDialog = Color(0xFF4B4B4B)
-private val OptTitle = Color(0xFFE8E8E8)
-private val OptSub = Color(0xFFA6A6A6)
-private val OptAccent = Color(0xFF80CBC4)
+// A tela de opcoes e escura nos dois temas: e a identidade dela. O que muda
+// aqui e o quanto fecha no tema escuro e no alto contraste.
+private val OptBg: Color @Composable get() = LocalMenuPalette.current.optBg
+private val OptDialog: Color @Composable get() = LocalMenuPalette.current.optDialog
+private val OptTitle: Color @Composable get() = LocalMenuPalette.current.optTitle
+private val OptSub: Color @Composable get() = LocalMenuPalette.current.optSub
+private val OptAccent: Color @Composable get() = LocalMenuPalette.current.optAccent
 
 /**
  * Tela de opcoes no estilo do print: lista escura com cabecalhos de secao e o
@@ -74,6 +76,23 @@ fun OptionsScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Visual")
+
+            OptionRow(
+                title = "Tema",
+                subtitle = "Mesa clara ou escura. Por padrao segue o modo escuro do aparelho",
+                onClick = { dialog = OptDialogKind.THEME },
+            ) {
+                Text(settings.themeMode.label, color = OptAccent, fontSize = 15.sp)
+            }
+
+            OptionRow(
+                title = "Alto contraste",
+                subtitle = "Fecha o fundo, tira a transparencia do texto e devolve a carta ao " +
+                    "branco, ignorando a cor escolhida abaixo",
+                onClick = { onSettings(settings.copy(highContrast = !settings.highContrast)) },
+            ) {
+                CheckBox(settings.highContrast)
+            }
 
             OptionRow(
                 title = "Baralho",
@@ -148,6 +167,11 @@ fun OptionsScreen(
             dialog = null
         }) { dialog = null }
 
+        OptDialogKind.THEME -> ThemeDialog(settings.themeMode, {
+            onSettings(settings.copy(themeMode = it))
+            dialog = null
+        }) { dialog = null }
+
         OptDialogKind.TEXT -> TextSizeDialog(settings.textScale, {
             onSettings(settings.copy(textScale = it))
             dialog = null
@@ -162,7 +186,7 @@ fun OptionsScreen(
     }
 }
 
-private enum class OptDialogKind { DECK, COLOR, TEXT, NAME }
+private enum class OptDialogKind { THEME, DECK, COLOR, TEXT, NAME }
 
 @Composable
 private fun SectionHeader(text: String) {
@@ -303,6 +327,33 @@ private fun ColorDialog(current: Color, onPick: (Color) -> Unit, onDismiss: () -
         },
         confirmButton = { TextButton(onClick = { onPick(selected) }) { Text("Selecionar", color = OptAccent) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = OptAccent) } },
+    )
+}
+
+@Composable
+private fun ThemeDialog(current: ThemeMode, onPick: (ThemeMode) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = OptDialog,
+        title = { Text("Tema da mesa", color = OptTitle, fontSize = 22.sp) },
+        text = {
+            Column {
+                ThemeMode.entries.forEach { modo ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(modo) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(modo.label, color = OptTitle, fontSize = 17.sp)
+                        if (modo == current) Text("✓", color = OptAccent, fontSize = 18.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = OptAccent) } },
     )
 }
 

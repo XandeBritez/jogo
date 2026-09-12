@@ -57,6 +57,14 @@ fun Suit.colorOn(background: Color): Color =
 fun inkOn(background: Color): Color =
     if (background.luminance() >= 0.45f) Black else Color(0xFFECECEC)
 
+/**
+ * Cor de fundo da carta e dos baloes. Em alto contraste a escolha do jogador
+ * cede: uma cor de meio-tom derruba justamente o contraste que a opcao promete.
+ */
+@Composable
+fun cardBackground(): Color =
+    if (LocalMenuPalette.current.highContrast) Color.White else LocalGameSettings.current.cardColor
+
 /** Aplica a escala de texto das opcoes. */
 @Composable
 fun scaled(size: TextUnit): TextUnit = (size.value * LocalGameSettings.current.textScale.factor).sp
@@ -87,7 +95,7 @@ fun PlayingCard(
             .alpha(lift)
             .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = settings.cardColor),
+        colors = CardDefaults.cardColors(containerColor = cardBackground()),
         border = if (isManilha) BorderStroke(2.5.dp, Color(0xFFD9A441)) else BorderStroke(1.dp, Color(0x33000000)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isManilha) 8.dp else 3.dp),
     ) {
@@ -97,13 +105,13 @@ fun PlayingCard(
         ) {
             Text(
                 text = card.rank.label,
-                color = card.suit.colorOn(settings.cardColor),
+                color = card.suit.colorOn(cardBackground()),
                 fontWeight = FontWeight.Bold,
                 fontSize = scaled(if (small) 14.sp else 20.sp),
             )
             Text(
                 text = card.suit.symbol,
-                color = card.suit.colorOn(settings.cardColor),
+                color = card.suit.colorOn(cardBackground()),
                 fontSize = scaled(if (small) 16.sp else 24.sp),
                 modifier = Modifier.align(Alignment.End),
             )
@@ -128,7 +136,7 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
     Card(
         modifier = modifier.width(w).height(h),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = settings.cardColor),
+        colors = CardDefaults.cardColors(containerColor = cardBackground()),
         border = BorderStroke(2.5.dp, Color(0xFFD9A441)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
@@ -139,7 +147,7 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
         ) {
             Text(
                 text = rankLabel,
-                color = inkOn(settings.cardColor),
+                color = inkOn(cardBackground()),
                 fontWeight = FontWeight.Black,
                 fontSize = scaled(if (small) 22.sp else 30.sp),
                 maxLines = 1,
@@ -153,7 +161,7 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
                 listOf(Suit.CLUBS, Suit.HEARTS, Suit.SPADES, Suit.DIAMONDS).forEach { s ->
                     Text(
                         s.symbol,
-                        color = s.colorOn(settings.cardColor),
+                        color = s.colorOn(cardBackground()),
                         fontSize = scaled(if (small) 8.sp else 11.sp),
                         maxLines = 1,
                         softWrap = false,
