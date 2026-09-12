@@ -82,6 +82,14 @@ object Engine {
             checkNotNull(only) { "jogador ${action.playerId} nao tem exatamente uma carta" }
             applyPlay(state, GameAction.PlayCard(action.playerId, only))
         }
+
+        is GameAction.PlayBlindAt -> {
+            check(state.isBlindNineCards) { "so a rodada cega de 9 cartas aceita jogada por posicao" }
+            val hand = state.hands[action.playerId].orEmpty()
+            val card = hand.getOrNull(action.index)
+            checkNotNull(card) { "posicao ${action.index} fora da mao de ${action.playerId}" }
+            applyPlay(state, GameAction.PlayCard(action.playerId, card))
+        }
     }
 
     private fun applyBid(state: GameState, action: GameAction.Bid): GameState {

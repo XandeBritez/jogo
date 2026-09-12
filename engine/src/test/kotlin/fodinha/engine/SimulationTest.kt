@@ -106,7 +106,7 @@ class SimulationTest {
                     assertTrue(v.revealedHands.keys.none { it == id })
                 } else {
                     assertTrue("vazou mao alheia", v.revealedHands.isEmpty())
-                    val esperado = if (v.handHiddenUntilBidsDone) emptyList() else s.hands[id].orEmpty()
+                    val esperado = if (v.blindNineCards) emptyList() else s.hands[id].orEmpty()
                     assertEquals(esperado, v.myHand)
                 }
             }

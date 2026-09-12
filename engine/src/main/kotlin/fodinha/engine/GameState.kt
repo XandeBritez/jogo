@@ -75,8 +75,11 @@ data class GameState(
     /** Rodada as cegas com a carta virada para fora: 1 carta, cada um ve a dos outros. */
     val isBlindOneCard: Boolean get() = cardsThisRound == 1
 
-    /** Rodada de 9 cartas: aposta antes de olhar a mao. */
-    val isBlindBidNineCards: Boolean get() = cardsThisRound == 9
+    /**
+     * Rodada de 9 cartas: cega do comeco ao fim. Aposta antes de olhar e joga
+     * escolhendo posicao, sem nunca ver a propria mao.
+     */
+    val isBlindNineCards: Boolean get() = cardsThisRound == 9
 
     val bidsComplete: Boolean get() = order.all { bids.containsKey(it) }
 }
@@ -108,4 +111,12 @@ sealed interface GameAction {
      */
     @Serializable
     data class PlayBlind(override val playerId: Int) : GameAction
+
+    /**
+     * Joga a carta da posicao `index` sem nomea-la. Existe por causa da rodada
+     * de 9 cartas, que e cega do inicio ao fim: o jogador escolhe uma posicao
+     * na mao, e so descobre o que mandou quando a carta cai na mesa.
+     */
+    @Serializable
+    data class PlayBlindAt(override val playerId: Int, val index: Int) : GameAction
 }

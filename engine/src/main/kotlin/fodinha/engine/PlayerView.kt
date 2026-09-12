@@ -14,7 +14,7 @@ data class PlayerView(
     val cardsThisRound: Int,
     val turned: Card?,
     val manilhaLabel: String?,
-    /** Minha mao. Vazia na rodada cega de 1 carta (nao posso ver a minha). */
+    /** Minha mao. Vazia nas rodadas cegas: a de 1 carta e a de 9. */
     val myHand: List<Card>,
     /** Maos visiveis dos outros: so preenchido na rodada cega de 1 carta. */
     val revealedHands: Map<Int, List<Card>>,
@@ -38,13 +38,18 @@ data class PlayerView(
      */
     val canPlayBlind: Boolean,
     /**
+     * Posso mandar carta por posicao? So na rodada de 9, na minha vez: escolho
+     * um lugar na mao e descubro o que era quando a carta cai na mesa.
+     */
+    val canPlayBlindAt: Boolean,
+    /**
      * Segundos que restam para o jogador da vez, no instante em que o host
      * mandou esta view. O cliente conta para baixo a partir daqui, para nao
      * depender dos relogios dos dois aparelhos baterem.
      */
     val turnSecondsLeft: Int?,
-    /** Na rodada de 9 cartas aposta-se as cegas: a mao so aparece depois das previsoes. */
-    val handHiddenUntilBidsDone: Boolean,
+    /** Rodada de 9 cartas: cega do comeco ao fim, aposta e jogada. */
+    val blindNineCards: Boolean,
     val lastRoundSummary: List<RoundResult>,
     val eliminationOrder: List<Int>,
     val log: List<String>,
@@ -55,11 +60,11 @@ data class PlayerView(
 
 fun GameState.viewFor(playerId: Int, turnSecondsLeft: Int? = null): PlayerView {
     val blindOne = isBlindOneCard
-    val blindNine = isBlindBidNineCards && phase == Phase.BIDDING
+    val blindNine = isBlindNineCards
 
     val myHand = when {
         blindOne -> emptyList()          // nao vejo a minha carta
-        blindNine -> emptyList()         // aposto antes de olhar
+        blindNine -> emptyList()         // nao vejo nenhuma, nem na hora de jogar
         else -> hands[playerId].orEmpty()
     }
 
@@ -89,10 +94,13 @@ fun GameState.viewFor(playerId: Int, turnSecondsLeft: Int? = null): PlayerView {
         trickIndex = trickIndex,
         phase = phase,
         legalBids = if (currentPlayerId == playerId) Engine.legalBids(this).sorted() else emptyList(),
-        legalPlays = if (blindOne) emptyList() else Engine.legalPlays(this, playerId),
+        // A Engine continua validando contra a mao de verdade; o que sai daqui
+        // e so o que o aparelho tem direito de ver.
+        legalPlays = if (blindOne || blindNine) emptyList() else Engine.legalPlays(this, playerId),
         canPlayBlind = blindOne && phase == Phase.PLAYING && currentPlayerId == playerId,
+        canPlayBlindAt = blindNine && phase == Phase.PLAYING && currentPlayerId == playerId,
         turnSecondsLeft = turnSecondsLeft,
-        handHiddenUntilBidsDone = blindNine,
+        blindNineCards = blindNine,
         lastRoundSummary = lastRoundSummary,
         eliminationOrder = eliminationOrder,
         // O painel lateral mostra o historico, entao vale mandar mais que umas

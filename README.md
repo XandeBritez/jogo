@@ -36,10 +36,18 @@ dado o seed. É o único módulo com testes unitários, e é onde qualquer dúvi
   fora, como na mesa). Quem manda a carta é você — toca no verso ou no botão "Jogar minha
   carta". O cliente nunca recebe qual é a carta: a ação `GameAction.PlayBlind` só diz *quem*
   jogou, e a engine resolve para a única carta da mão.
-- **9 cartas**: aposta antes de olhar; a mão aparece depois que todas as previsões saem.
+- **9 cartas**: cega do começo ao fim. Você aposta sem olhar e **continua sem ver a mão na
+  hora de jogar**: escolhe uma *posição* (1 a 9) e só descobre que carta era quando ela cai
+  na mesa. A ação é `GameAction.PlayBlindAt`, que carrega o índice e nunca a carta; o
+  `PlayerView` manda `myHand` vazio e `legalPlays` vazio a rodada inteira, enquanto a Engine
+  segue validando contra a mão de verdade. O bot joga carta sorteada nessa rodada — ele vê a
+  própria mão porque roda dentro do host, e escolher por força seria trapaça.
   Como as cartas por rodada são limitadas a `39 / jogadores vivos`, a rodada de 9 cartas
   **só acontece com até 4 jogadores**. Com 5 o teto é 7 cartas, com 6 é 6 — aí essa regra
   simplesmente não chega a valer.
+
+A mão aparece em cinco cartas por linha, quebrando para baixo: com nove na mesma linha
+só dava para ver as primeiras.
 
 A redação é feita em `GameState.viewFor(playerId)`, que devolve um `PlayerView`. É esse o objeto
 que trafega na rede: **mão alheia nunca atravessa o socket**.
@@ -121,7 +129,9 @@ Instalar num aparelho:
 
 ## Estado da verificação
 
-- ✅ `:engine:test` — 25 testes verdes, incluindo 1000 partidas completas (2 a 6 jogadores,
+- ✅ `:engine:test` — 29 testes verdes (4 novos cobrem a rodada cega de 9: mão e `legalPlays`
+  vazios também na fase de jogada, `PlayBlindAt` tirando a carta da posição pedida, e recusa
+  de posição inválida ou de rodada que não seja a de 9), incluindo 1000 partidas completas (2 a 6 jogadores,
   200 sementes cada) checando: baralho nunca estoura, nenhuma carta duplicada, soma das
   previsões nunca iguala as cartas, vazas batem com as cartas, vidas só caem, jogo sempre
   termina com ranking completo, e `PlayerView` nunca vaza mão alheia.

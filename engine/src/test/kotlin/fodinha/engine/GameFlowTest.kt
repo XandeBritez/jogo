@@ -201,6 +201,85 @@ class GameFlowTest {
 
     // --- helpers: usam o proprio Bot para dirigir a partida ---
 
+    // ---------- rodada de 9 cartas: cega do comeco ao fim ----------
+
+    /**
+     * Chega na rodada de 9 cartas jogando as anteriores. Com ate 4 jogadores o
+     * teto de 39/vivos nao aperta, entao a nona rodada tem mesmo 9 cartas.
+     */
+    private fun rodadaDeNove(n: Int = 4, seed: Long = 7L): GameState {
+        var s = game(n, seed)
+        var voltas = 0
+        while (s.cardsThisRound != 9 && s.phase != Phase.GAME_OVER && voltas < 40) {
+            s = playRound(s)
+            voltas++
+        }
+        assertEquals(9, s.cardsThisRound)
+        return s
+    }
+
+    @Test
+    fun `rodada de 9 esconde a mao tambem na hora de jogar`() {
+        var s = rodadaDeNove()
+        // Apostando: ninguem ve a propria mao.
+        s.order.forEach { id -> assertTrue(s.viewFor(id).myHand.isEmpty()) }
+
+        s = bidAll(s)
+        assertEquals(Phase.PLAYING, s.phase)
+
+        s.order.forEach { id ->
+            val v = s.viewFor(id)
+            assertTrue("mao vazou na fase de jogada", v.myHand.isEmpty())
+            assertTrue("legalPlays vazou a mao", v.legalPlays.isEmpty())
+            assertTrue(v.blindNineCards)
+            // Sei quantas cartas tenho, nao quais.
+            assertEquals(9, v.handSizes[id])
+        }
+        val daVez = s.currentPlayerId!!
+        assertTrue(s.viewFor(daVez).canPlayBlindAt)
+        assertFalse(s.viewFor(daVez).canPlayBlind)
+    }
+
+    @Test
+    fun `PlayBlindAt joga a carta daquela posicao`() {
+        var s = bidAll(rodadaDeNove())
+        val id = s.currentPlayerId!!
+        val mao = s.hands[id]!!
+        val esperada = mao[3]
+
+        s = Engine.reduce(s, GameAction.PlayBlindAt(id, 3))
+
+        assertEquals(esperada, s.currentTrick.first().card)
+        assertEquals(8, s.hands[id]!!.size)
+        assertFalse(s.hands[id]!!.contains(esperada) && mao.count { it == esperada } == 1)
+    }
+
+    @Test
+    fun `PlayBlindAt so vale na rodada de 9`() {
+        val s = bidAll(game(4))
+        val id = s.currentPlayerId!!
+        var falhou = false
+        try {
+            Engine.reduce(s, GameAction.PlayBlindAt(id, 0))
+        } catch (e: IllegalStateException) {
+            falhou = true
+        }
+        assertTrue("rodada de 1 carta aceitou jogada por posicao", falhou)
+    }
+
+    @Test
+    fun `posicao fora da mao e recusada`() {
+        val s = bidAll(rodadaDeNove())
+        val id = s.currentPlayerId!!
+        var falhou = false
+        try {
+            Engine.reduce(s, GameAction.PlayBlindAt(id, 9))
+        } catch (e: IllegalStateException) {
+            falhou = true
+        }
+        assertTrue("posicao 9 numa mao de 9 cartas deveria falhar", falhou)
+    }
+
     private fun bidAll(state: GameState): GameState {
         var s = state
         while (s.phase == Phase.BIDDING) {

@@ -118,6 +118,7 @@ private fun App(vm: GameViewModel = viewModel()) {
                         onBid = vm::bid,
                         onPlay = vm::playCard,
                         onPlayBlind = vm::playBlind,
+                        onPlayBlindAt = vm::playBlindAt,
                         onNextRound = vm::nextRound,
                         onLeave = vm::leave,
                     )

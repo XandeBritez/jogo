@@ -308,8 +308,14 @@ class GameHost(
             when (g.phase) {
                 Phase.BIDDING -> GameAction.Bid(playerId, Engine.legalBids(g).random())
                 Phase.PLAYING ->
-                    if (g.isBlindOneCard) GameAction.PlayBlind(playerId)
-                    else GameAction.PlayCard(playerId, Engine.legalPlays(g, playerId).random())
+                    if (g.isBlindOneCard) {
+                        GameAction.PlayBlind(playerId)
+                    } else if (g.isBlindNineCards) {
+                        // Cega: sorteia a posicao, do mesmo jeito que o jogador escolheria.
+                        GameAction.PlayBlindAt(playerId, Engine.legalPlays(g, playerId).indices.random())
+                    } else {
+                        GameAction.PlayCard(playerId, Engine.legalPlays(g, playerId).random())
+                    }
                 else -> return
             }
         }

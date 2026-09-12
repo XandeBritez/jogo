@@ -70,6 +70,7 @@ fun TableScreen(
     onBid: (Int) -> Unit,
     onPlay: (GameCard) -> Unit,
     onPlayBlind: () -> Unit,
+    onPlayBlindAt: (Int) -> Unit,
     onNextRound: () -> Unit,
     onLeave: () -> Unit,
 ) {
@@ -111,7 +112,7 @@ fun TableScreen(
             }
 
             Spacer(Modifier.height(12.dp))
-            HandArea(view, onPlay, onPlayBlind)
+            HandArea(view, onPlay, onPlayBlind, onPlayBlindAt)
         }
 
         SideSheet(
@@ -420,7 +421,7 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
             Text(
                 when {
                     blindOne -> "Previsao as cegas: voce NAO ve sua carta, mas ve a dos outros."
-                    view.handHiddenUntilBidsDone -> "Previsao as cegas: aposte antes de olhar a mao."
+                    view.blindNineCards -> "Rodada as cegas: voce nao ve a sua mao em momento nenhum."
                     else -> "Quantas vazas voce vai ganhar?"
                 },
                 fontWeight = FontWeight.SemiBold,
@@ -577,24 +578,36 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
     }
 }
 
-/** Minha mao. Na rodada cega de 1 carta mostra so o verso. */
+/**
+ * Minha mao. Cinco cartas por linha, o resto desce: com nove na mesma linha
+ * so dava para ver as primeiras.
+ *
+ * Nas rodadas cegas aparece o verso: na de 1 carta porque a minha esta virada
+ * para fora, na de 9 porque a rodada inteira e no escuro - eu escolho a
+ * posicao e so descubro o que mandei quando a carta cai na mesa.
+ */
 @Composable
-private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: () -> Unit) {
+private fun HandArea(
+    view: PlayerView,
+    onPlay: (GameCard) -> Unit,
+    onPlayBlind: () -> Unit,
+    onPlayBlindAt: (Int) -> Unit,
+) {
     Column(Modifier.fillMaxWidth()) {
         Text("Sua mao", fontWeight = FontWeight.SemiBold, fontSize = scaled(13.sp), color = Ink)
         Spacer(Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            when {
-                view.cardsThisRound == 1 && (view.handSizes[view.me] ?: 0) > 0 -> {
+
+        when {
+            view.cardsThisRound == 1 && (view.handSizes[view.me] ?: 0) > 0 -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     // Virada para fora: nao vejo a minha, mas sou eu quem joga.
                     CardBack(
                         onClick = if (view.canPlayBlind) onPlayBlind else null,
                         highlighted = view.canPlayBlind,
                     )
-                    Spacer(Modifier.size(8.dp))
                     Text(
                         if (view.canPlayBlind) "Sua vez: toque na carta para joga-la."
                         else "Carta virada para fora:\nvoce nao ve a sua.",
@@ -602,32 +615,59 @@ private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: 
                         color = Ink.copy(alpha = 0.9f),
                     )
                 }
+            }
 
-                view.handHiddenUntilBidsDone -> {
-                    repeat(view.cardsThisRound) { CardBack(small = true) }
-                }
-
-                view.myHand.isEmpty() -> CardSlot()
-
-                else -> view.myHand.forEach { card ->
-                    val playable = view.legalPlays.contains(card) && view.isMyTurn
-                    PlayingCard(
-                        card = card,
-                        isManilha = card.rank.label == view.manilhaLabel,
-                        enabled = playable,
-                        onClick = if (playable) ({ onPlay(card) }) else null,
-                    )
+            view.blindNineCards -> {
+                val restantes = view.handSizes[view.me] ?: 0
+                Text(
+                    if (view.canPlayBlindAt) "Sua vez: escolha uma posicao. So a mesa dira qual carta era."
+                    else "Rodada as cegas: a mao inteira fica no escuro.",
+                    fontSize = scaled(12.sp),
+                    color = Ink.copy(alpha = 0.9f),
+                )
+                Spacer(Modifier.height(8.dp))
+                CardGrid(restantes) { i ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CardBack(
+                            onClick = if (view.canPlayBlindAt) ({ onPlayBlindAt(i) }) else null,
+                            highlighted = view.canPlayBlindAt,
+                        )
+                        Text(
+                            "${i + 1}",
+                            fontSize = scaled(11.sp),
+                            color = Ink.copy(alpha = 0.7f),
+                        )
+                    }
                 }
             }
-        }
-        if (view.canPlayBlind) {
-            Spacer(Modifier.height(8.dp))
-            MenuTile(
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                onClick = onPlayBlind,
-            ) { Text("Jogar minha carta", color = Color.White, fontSize = scaled(17.sp)) }
+
+            view.myHand.isEmpty() -> CardSlot()
+
+            else -> CardGrid(view.myHand.size) { i ->
+                val card = view.myHand[i]
+                val playable = view.legalPlays.contains(card) && view.isMyTurn
+                PlayingCard(
+                    card = card,
+                    isManilha = card.rank.label == view.manilhaLabel,
+                    enabled = playable,
+                    onClick = if (playable) ({ onPlay(card) }) else null,
+                )
+            }
         }
     }
 }
 
-
+/** Cinco por linha; a ultima linha alinha a esquerda, sem esticar carta. */
+@Composable
+private fun CardGrid(count: Int, item: @Composable (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        (0 until count).chunked(5).forEach { linha ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                linha.forEach { i -> item(i) }
+            }
+        }
+    }
+}

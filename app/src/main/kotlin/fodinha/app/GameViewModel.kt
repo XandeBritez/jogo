@@ -215,6 +215,10 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     /** Rodada cega de 1 carta: mando a carta sem saber qual e. */
     fun playBlind() = send(ClientMsg.Play(GameAction.PlayBlind(_ui.value.myId)))
 
+    /** Rodada cega de 9: escolho a posicao; que carta era, so a mesa conta. */
+    fun playBlindAt(index: Int) =
+        send(ClientMsg.Play(GameAction.PlayBlindAt(_ui.value.myId, index)))
+
     fun nextRound() = send(ClientMsg.NextRound)
 
     fun leave() {

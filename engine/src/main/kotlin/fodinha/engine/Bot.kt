@@ -18,7 +18,7 @@ object Bot {
 
         val estimate = if (state.isBlindOneCard) {
             estimateBlindOneCard(state, playerId, manilha)
-        } else if (state.isBlindBidNineCards) {
+        } else if (state.isBlindNineCards) {
             // Aposta as cegas: chuta a media estatistica (cartas / jogadores).
             (state.cardsThisRound.toDouble() / state.order.size).roundToInt()
         } else {
@@ -71,6 +71,11 @@ object Bot {
 
         // Na rodada cega de 1 carta so existe uma opcao.
         if (hand.size == 1) return GameAction.PlayCard(playerId, hand.first())
+
+        // Rodada de 9: cega para todo mundo. O bot enxerga a propria mao porque
+        // roda dentro do host, mas escolher por forca seria trapaca contra o
+        // humano, que esta mandando carta no escuro.
+        if (state.isBlindNineCards) return GameAction.PlayCard(playerId, hand.random())
 
         val bid = state.bids[playerId] ?: 0
         val won = state.tricksWon[playerId] ?: 0
