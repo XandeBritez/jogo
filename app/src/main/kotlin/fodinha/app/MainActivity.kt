@@ -24,7 +24,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.CompositionLocalProvider
 import fodinha.app.ui.FodinhaTheme
+import fodinha.app.ui.LocalGameSettings
+import fodinha.app.ui.OptionsScreen
 import fodinha.app.ui.HomeScreen
 import fodinha.app.ui.LobbyScreen
 import fodinha.app.ui.TableScreen
@@ -68,6 +71,7 @@ private fun App(vm: GameViewModel = viewModel()) {
         }
     }
 
+    CompositionLocalProvider(LocalGameSettings provides ui.settings) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = Color.Transparent,
@@ -92,10 +96,12 @@ private fun App(vm: GameViewModel = viewModel()) {
                     onStartBots = vm::startBotGame,
                     onHostWifi = vm::hostWifiRoom,
                     onScanWifi = vm::startRoomDiscovery,
+                    onStopScanWifi = vm::stopRoomDiscovery,
                     onJoinWifi = vm::joinWifiRoom,
                     onHostBluetooth = vm::hostBluetoothRoom,
                     onScanBluetooth = vm::loadPairedDevices,
                     onJoinBluetooth = vm::joinBluetooth,
+                    onOpenOptions = vm::openOptions,
                 )
 
                 Screen.LOBBY -> LobbyScreen(
@@ -116,7 +122,16 @@ private fun App(vm: GameViewModel = viewModel()) {
                         onLeave = vm::leave,
                     )
                 }
+
+                Screen.OPTIONS -> OptionsScreen(
+                    settings = ui.settings,
+                    playerName = ui.playerName,
+                    onSettings = vm::setSettings,
+                    onName = vm::setName,
+                    onBack = vm::closeOptions,
+                )
             }
         }
+    }
     }
 }

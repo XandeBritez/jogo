@@ -1,6 +1,9 @@
 package fodinha.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,23 +11,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fodinha.app.UiState
 import fodinha.app.net.TransportKind
 
+/** Mesa de 2 a 6 assentos. */
+private const val MAX_SEATS = 6
+
+/**
+ * Sala de espera na mesma linguagem do menu: mesa verde, blocos escuros e o
+ * mesmo contador "- n +" para os bots.
+ */
 @Composable
 fun LobbyScreen(
     ui: UiState,
@@ -34,90 +46,187 @@ fun LobbyScreen(
     onLeave: () -> Unit,
 ) {
     val lobby = ui.lobby
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text(
-            lobby?.roomName ?: "Sala",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            when (ui.kind) {
-                TransportKind.LOCAL -> "Partida local contra bots"
-                TransportKind.WIFI -> "Sala WiFi na rede local"
-                TransportKind.BLUETOOTH -> "Sala Bluetooth"
-            },
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-        )
-        Spacer(Modifier.height(20.dp))
+    val seats = lobby?.seats.orEmpty()
+    val bots = seats.count { it.isBot }
+    val canStart = seats.size >= 2
 
-        if (ui.connecting) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(strokeWidth = 2.dp)
-                Spacer(Modifier.height(8.dp))
-                Text("  Conectando...")
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(MenuGreen, MenuGreenDeep))),
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 18.dp),
+        ) {
+            Text(
+                lobby?.roomName ?: "Sala",
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+            )
+            Text(
+                when (ui.kind) {
+                    TransportKind.LOCAL -> "partida local contra bots"
+                    TransportKind.WIFI -> "sala WiFi na rede local"
+                    TransportKind.BLUETOOTH -> "sala Bluetooth"
+                },
+                color = Ink.copy(alpha = 0.75f),
+                fontSize = 14.sp,
+                fontStyle = FontStyle.Italic,
+            )
+
+            if (ui.connecting) {
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MenuGold,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(10.dp))
+                    Text("conectando...", color = Ink)
+                }
             }
-            Spacer(Modifier.height(16.dp))
-        }
 
-        Text("Jogadores (${lobby?.seats?.size ?: 0}/6)", fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "jogadores (${seats.size}/$MAX_SEATS)",
+                color = Ink.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+            )
+            Spacer(Modifier.height(8.dp))
 
-        lobby?.seats?.forEach { seat ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+            seats.forEach { seat ->
+                SeatRow(
+                    name = seat.name + if (seat.id == ui.myId) "  (voce)" else "",
+                    tag = when {
+                        seat.isBot -> "bot"
+                        seat.connected -> "conectado"
+                        else -> "desconectado"
+                    },
+                    dot = when {
+                        seat.isBot -> MenuGold
+                        seat.connected -> Color(0xFF7FE0A0)
+                        else -> Color(0xFFFF8A80)
+                    },
+                    me = seat.id == ui.myId,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            if (ui.isHost) {
+                BotBox(
+                    bots = bots,
+                    canAdd = seats.size < MAX_SEATS,
+                    onAdd = onAddBot,
+                    onRemove = onRemoveBot,
+                )
+                Spacer(Modifier.height(14.dp))
+
+                MenuTile(
+                    modifier = Modifier.fillMaxWidth().height(76.dp),
+                    enabled = canStart,
+                    onClick = onStart,
                 ) {
                     Text(
-                        buildString {
-                            append(seat.name)
-                            if (seat.id == ui.myId) append(" (voce)")
-                        },
-                        fontWeight = FontWeight.SemiBold,
+                        "Comecar",
+                        color = if (canStart) Color.White else Ink.copy(alpha = 0.4f),
+                        fontSize = 28.sp,
                     )
+                }
+                if (!canStart) {
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        when {
-                            seat.isBot -> "bot"
-                            seat.connected -> "conectado"
-                            else -> "desconectado"
-                        },
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        "precisa de pelo menos 2 jogadores na mesa",
+                        color = Ink.copy(alpha = 0.75f),
+                        fontSize = 13.sp,
+                    )
+                }
+            } else {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(SlateSoft, RoundedCornerShape(12.dp))
+                        .border(2.dp, MenuEdge, RoundedCornerShape(12.dp))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "aguardando o dono da sala comecar...",
+                        color = Ink,
+                        fontSize = 15.sp,
+                        fontStyle = FontStyle.Italic,
                     )
                 }
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
-
-        if (ui.isHost) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onAddBot, modifier = Modifier.weight(1f)) { Text("+ Bot") }
-                OutlinedButton(onClick = onRemoveBot, modifier = Modifier.weight(1f)) { Text("- Bot") }
+            Spacer(Modifier.height(12.dp))
+            MenuTile(
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                onClick = onLeave,
+            ) {
+                Text("Sair da sala", color = Ink, fontSize = 16.sp)
             }
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = onStart,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = (lobby?.seats?.size ?: 0) >= 2,
-            ) { Text("Comecar jogo") }
-            if ((lobby?.seats?.size ?: 0) < 2) {
-                Text(
-                    "Precisa de pelo menos 2 jogadores.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                )
-            }
-        } else {
-            Text("Aguardando o dono da sala comecar...", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+            Spacer(Modifier.height(20.dp))
         }
+    }
+}
 
-        Spacer(Modifier.height(12.dp))
-        TextButton(onClick = onLeave) { Text("Sair da sala") }
+/** Assento: bolinha de estado, nome e etiqueta. */
+@Composable
+private fun SeatRow(name: String, tag: String, dot: Color, me: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Slate, RoundedCornerShape(10.dp))
+            .then(
+                if (me) Modifier.border(1.5.dp, Color(0x66FFFFFF), RoundedCornerShape(10.dp))
+                else Modifier
+            )
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(9.dp).background(dot, CircleShape))
+            Spacer(Modifier.size(10.dp))
+            Text(
+                name,
+                color = Color.White,
+                fontWeight = if (me) FontWeight.Bold else FontWeight.Normal,
+                fontSize = 17.sp,
+                maxLines = 1,
+            )
+        }
+        Text(tag, color = Ink.copy(alpha = 0.6f), fontSize = 13.sp)
+    }
+}
+
+/** Mesmo contador do menu, agora mexendo nos bots ja sentados. */
+@Composable
+private fun BotBox(bots: Int, canAdd: Boolean, onAdd: () -> Unit, onRemove: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SlateSoft, RoundedCornerShape(12.dp))
+            .border(2.dp, MenuEdge, RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("bots na mesa:", color = Ink, fontSize = 14.sp, fontStyle = FontStyle.Italic)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StepButton("-", enabled = bots > 0, onClick = onRemove)
+            Text("$bots", color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp)
+            StepButton("+", enabled = canAdd, onClick = onAdd)
+        }
     }
 }

@@ -44,6 +44,26 @@ dado o seed. É o único módulo com testes unitários, e é onde qualquer dúvi
 A redação é feita em `GameState.viewFor(playerId)`, que devolve um `PlayerView`. É esse o objeto
 que trafega na rede: **mão alheia nunca atravessa o socket**.
 
+## Menu e opcoes
+
+O menu de abertura (`ui/HomeScreen.kt`) e uma mesa verde com o nome escrito em cartas, a caixa
+"escolha o modo" (quantos bots entram), o bloco **Jogar** e os atalhos **Internet**, **Bluetooth**,
+**Ajuda**, **Sobre** e **Opcoes**. Sala WiFi/Bluetooth (nome da sala, procurar, lista de salas e
+de aparelhos pareados) mora nos dialogos dos dois atalhos, nao mais inline na tela.
+
+`ui/OptionsScreen.kt` e a lista escura de preferencias, gravada em `SharedPreferences`
+(`ui/Settings.kt`) e distribuida por `LocalGameSettings`:
+
+| Opcao | Efeito |
+|---|---|
+| Baralho | desenho do verso (`DeckBackArt`), 5 opcoes |
+| Cor de fundo das cartas e baloes | paleta de 20; a tinta do naipe clareia sozinha em fundo escuro |
+| Tamanho do Texto | escala 1.0 / 1.18 / 1.35 aplicada por `scaled()` |
+| Animacao Rapida | encurta as transicoes da carta |
+| Seu nome | nome do assento, tambem editavel pelo menu |
+
+Nada disso toca a Engine: regra e a mesma para todo mundo na mesa.
+
 ## Pausa da vaza
 
 Quando o último jogador solta a carta, a mesa **não** é recolhida na hora: a engine entra em
@@ -116,6 +136,7 @@ Instalar num aparelho:
     jogada sozinha, A♣ venceu K♠ e o bot perdeu 1 vida por prever 0 e fazer 1.
   - Rodada 2 (normal, 2 cartas): mão visível, manilha K derivada da virada J♦, K♥ destacado
     como manilha, dealer rotacionado, previsões 0/1/2 todas liberadas para quem não é o último.
+- ⚠️ **Menu novo e tela de opções**: compilam e passam nos testes, mas **não rodaram em aparelho** — nenhum device estava conectado. O relato de partida acima é do fluxo antigo de abertura; as regras e a mesa não mudaram, mas o menu, os diálogos de sala e as opções ainda precisam de um olhar num celular de verdade.
 - ⚠️ **WiFi**: precisa de duas instâncias na mesma LAN.
 - ⚠️ **Bluetooth**: não funciona em emulador. Exige dois aparelhos físicos pareados.
 

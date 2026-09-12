@@ -1,6 +1,7 @@
 package fodinha.app.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fodinha.engine.Suit
@@ -40,6 +42,25 @@ fun Suit.color(): Color = when (this) {
     Suit.CLUBS, Suit.SPADES -> Black
 }
 
+/**
+ * Tinta do naipe conforme o fundo escolhido nas opcoes: em fundo escuro o
+ * preto some e o vermelho fecha, entao clareia os dois.
+ */
+fun Suit.colorOn(background: Color): Color =
+    if (background.luminance() >= 0.45f) color()
+    else when (this) {
+        Suit.HEARTS, Suit.DIAMONDS -> Color(0xFFFF8A80)
+        Suit.CLUBS, Suit.SPADES -> Color(0xFFECECEC)
+    }
+
+/** Tinta de texto neutro sobre a cor de fundo escolhida. */
+fun inkOn(background: Color): Color =
+    if (background.luminance() >= 0.45f) Black else Color(0xFFECECEC)
+
+/** Aplica a escala de texto das opcoes. */
+@Composable
+fun scaled(size: TextUnit): TextUnit = (size.value * LocalGameSettings.current.textScale.factor).sp
+
 /** Carta de frente. `manilha` desenha a borda dourada. */
 @Composable
 fun PlayingCard(
@@ -50,9 +71,14 @@ fun PlayingCard(
     small: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
+    val settings = LocalGameSettings.current
     val w = if (small) 42.dp else 62.dp
     val h = if (small) 60.dp else 88.dp
-    val lift by animateFloatAsState(if (enabled && onClick != null) 1f else 0.75f, label = "lift")
+    val lift by animateFloatAsState(
+        targetValue = if (enabled && onClick != null) 1f else 0.75f,
+        animationSpec = tween(if (settings.fastAnimation) 90 else 300),
+        label = "lift",
+    )
 
     Card(
         modifier = modifier
@@ -61,7 +87,7 @@ fun PlayingCard(
             .alpha(lift)
             .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFBF4)),
+        colors = CardDefaults.cardColors(containerColor = settings.cardColor),
         border = if (isManilha) BorderStroke(2.5.dp, Color(0xFFD9A441)) else BorderStroke(1.dp, Color(0x33000000)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isManilha) 8.dp else 3.dp),
     ) {
@@ -71,14 +97,14 @@ fun PlayingCard(
         ) {
             Text(
                 text = card.rank.label,
-                color = card.suit.color(),
+                color = card.suit.colorOn(settings.cardColor),
                 fontWeight = FontWeight.Bold,
-                fontSize = if (small) 14.sp else 20.sp,
+                fontSize = scaled(if (small) 14.sp else 20.sp),
             )
             Text(
                 text = card.suit.symbol,
-                color = card.suit.color(),
-                fontSize = if (small) 16.sp else 24.sp,
+                color = card.suit.colorOn(settings.cardColor),
+                fontSize = scaled(if (small) 16.sp else 24.sp),
                 modifier = Modifier.align(Alignment.End),
             )
         }
@@ -94,6 +120,7 @@ fun PlayingCard(
  */
 @Composable
 fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean = true) {
+    val settings = LocalGameSettings.current
     // Um tico mais larga que a carta comum: leva quatro naipes no rodape.
     val w = if (small) 48.dp else 68.dp
     val h = if (small) 60.dp else 88.dp
@@ -101,7 +128,7 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
     Card(
         modifier = modifier.width(w).height(h),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFBF4)),
+        colors = CardDefaults.cardColors(containerColor = settings.cardColor),
         border = BorderStroke(2.5.dp, Color(0xFFD9A441)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
@@ -112,9 +139,9 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
         ) {
             Text(
                 text = rankLabel,
-                color = Black,
+                color = inkOn(settings.cardColor),
                 fontWeight = FontWeight.Black,
-                fontSize = if (small) 22.sp else 30.sp,
+                fontSize = scaled(if (small) 22.sp else 30.sp),
                 maxLines = 1,
             )
             // Os quatro naipes tem que caber: sem folga aqui, ouros era cortado.
@@ -126,11 +153,60 @@ fun ManilhaCard(rankLabel: String, modifier: Modifier = Modifier, small: Boolean
                 listOf(Suit.CLUBS, Suit.HEARTS, Suit.SPADES, Suit.DIAMONDS).forEach { s ->
                     Text(
                         s.symbol,
-                        color = s.color(),
-                        fontSize = if (small) 8.sp else 11.sp,
+                        color = s.colorOn(settings.cardColor),
+                        fontSize = scaled(if (small) 8.sp else 11.sp),
                         maxLines = 1,
                         softWrap = false,
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Desenho do verso, separado do tamanho: serve para a carta na mesa e para a
+ * miniatura do dialogo "Selecione um baralho".
+ */
+@Composable
+fun DeckBackArt(
+    back: DeckBack,
+    modifier: Modifier = Modifier,
+    rows: Int = 4,
+    cols: Int = 3,
+    glyph: TextUnit = 10.sp,
+) {
+    Box(
+        modifier = modifier
+            .background(
+                brush = Brush.linearGradient(listOf(back.base, back.base.copy(alpha = 0.82f))),
+                shape = RoundedCornerShape(8.dp),
+            )
+            .padding(3.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, back.ink.copy(alpha = 0.75f), RoundedCornerShape(5.dp))
+                .padding(2.dp),
+            verticalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            val suits = listOf("♣", "♦", "♠", "♥")
+            repeat(rows) { r ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    repeat(cols) { c ->
+                        Text(
+                            suits[(r + c) % suits.size],
+                            color = back.ink.copy(alpha = 0.9f),
+                            fontSize = glyph,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                 }
             }
         }
@@ -148,32 +224,24 @@ fun CardBack(
     highlighted: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
+    val back = LocalGameSettings.current.deckBack
     val w = if (small) 42.dp else 62.dp
     val h = if (small) 60.dp else 88.dp
-    Box(
+    DeckBackArt(
+        back = back,
         modifier = modifier
             .width(w)
             .height(h)
-            .background(
-                brush = Brush.linearGradient(listOf(Color(0xFF243B6B), Color(0xFF122043))),
-                shape = RoundedCornerShape(8.dp),
-            )
             .then(
                 if (highlighted) Modifier.border(2.5.dp, Color(0xFFD9A441), RoundedCornerShape(8.dp))
                 else Modifier
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(if (small) 18.dp else 26.dp)
-                .background(Color(0x33D9A441), RoundedCornerShape(4.dp))
-        )
-    }
+        glyph = if (small) 8.sp else 11.sp,
+    )
 }
 
-/** Espaco vazio do tamanho de uma carta, para a mesa nao "pular". */
+/** Espaco vazio do tamanho de uma carta, para a mesa nao pular. */
 @Composable
 fun CardSlot(modifier: Modifier = Modifier, small: Boolean = false) {
     Box(

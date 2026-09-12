@@ -15,3 +15,6 @@ local.properties
 /captures
 .externalNativeBuild
 .cxx
+
+# Prints de referencia do menu (nao fazem parte do projeto)
+WhatsApp Image*.jpeg

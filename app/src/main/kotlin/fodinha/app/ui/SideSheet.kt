@@ -36,6 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/** Encurta a duracao quando "Animacao Rapida" esta ligada nas opcoes. */
+@Composable
+private fun fast(ms: Int): Int = if (LocalGameSettings.current.fastAnimation) ms / 3 else ms
+
 /**
  * Painel que desliza pela lateral direita, por cima da mesa.
  *
@@ -55,8 +59,8 @@ fun BoxScope.SideSheet(
     // Scrim: escurece a mesa e fecha o painel ao toque.
     AnimatedVisibility(
         visible = open,
-        enter = fadeIn(tween(200)),
-        exit = fadeOut(tween(200)),
+        enter = fadeIn(tween(fast(200))),
+        exit = fadeOut(tween(fast(200))),
         modifier = Modifier.matchParentSize(),
     ) {
         Box(
@@ -73,8 +77,8 @@ fun BoxScope.SideSheet(
 
     AnimatedVisibility(
         visible = open,
-        enter = slideInHorizontally(tween(260)) { it },
-        exit = slideOutHorizontally(tween(220)) { it },
+        enter = slideInHorizontally(tween(fast(260))) { it },
+        exit = slideOutHorizontally(tween(fast(220))) { it },
         modifier = Modifier.align(Alignment.CenterEnd),
     ) {
         Surface(

@@ -52,6 +52,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fodinha.engine.Card as GameCard
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.unit.isUnspecified
 import fodinha.engine.Phase
 import fodinha.engine.PlayerView
 
@@ -69,6 +72,10 @@ fun TableScreen(
     // Voltar fecha o painel antes de sair da mesa.
     BackHandler(enabled = historyOpen) { historyOpen = false }
 
+    // "Tamanho do Texto" das opcoes: pega tambem o texto que nao declara sp.
+    val base = LocalTextStyle.current
+    val baseSize = if (base.fontSize.isUnspecified) 16.sp else base.fontSize
+    CompositionLocalProvider(LocalTextStyle provides base.copy(fontSize = scaled(baseSize))) {
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -104,6 +111,7 @@ fun TableScreen(
         ) {
             HistoryList(view)
         }
+    }
     }
 }
 
@@ -416,14 +424,14 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
             Spacer(Modifier.height(6.dp))
             Text(
                 "Soma das previsoes ate agora: ${view.bidSum} de ${view.cardsThisRound}",
-                fontSize = 12.sp,
+                fontSize = scaled(12.sp),
             )
             if (view.isMyTurn && view.forbiddenBid != null && view.forbiddenBid in 0..view.cardsThisRound &&
                 !view.legalBids.contains(view.forbiddenBid)
             ) {
                 Text(
                     "Voce e o ultimo: nao pode prever ${view.forbiddenBid} (a soma nao pode dar ${view.cardsThisRound}).",
-                    fontSize = 12.sp,
+                    fontSize = scaled(12.sp),
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -462,12 +470,12 @@ private fun TrickRevealPanel(view: PlayerView) {
         if (winner == null) "Vaza fechada"
         else if (winner.id == view.me) "Voce ganhou a vaza" else "${winner.name} ganhou a vaza",
         fontWeight = FontWeight.Black,
-        fontSize = 16.sp,
+        fontSize = scaled(16.sp),
         color = MaterialTheme.colorScheme.primary,
     )
     Text(
         "Recolhendo a mesa...",
-        fontSize = 12.sp,
+        fontSize = scaled(12.sp),
         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
     )
 }
@@ -489,7 +497,7 @@ private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text("Fim da rodada", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Fim da rodada", fontWeight = FontWeight.Bold, fontSize = scaled(18.sp))
             Spacer(Modifier.height(8.dp))
             view.lastRoundSummary.forEach { r ->
                 val p = view.players.first { it.id == r.playerId }
@@ -501,7 +509,7 @@ private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
                     Text(
                         "previu ${r.bid}, fez ${r.won}  →  -${r.livesLost}  (${r.livesAfter} vidas)" +
                             if (r.eliminated) "  ELIMINADO" else "",
-                        fontSize = 13.sp,
+                        fontSize = scaled(13.sp),
                         color = if (r.livesLost == 0) Color(0xFF7FC8A9)
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -520,7 +528,7 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("Fim de jogo", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+            Text("Fim de jogo", fontSize = scaled(22.sp), fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(10.dp))
             Text("Classificacao", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
@@ -537,7 +545,7 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
                         color = if (i == 0) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text("${p.lives} vidas", fontSize = 13.sp)
+                    Text("${p.lives} vidas", fontSize = scaled(13.sp))
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -550,7 +558,7 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
 @Composable
 private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text("Sua mao", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Text("Sua mao", fontWeight = FontWeight.SemiBold, fontSize = scaled(13.sp))
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -567,7 +575,7 @@ private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: 
                     Text(
                         if (view.canPlayBlind) "Sua vez: toque na carta para joga-la."
                         else "Carta virada para fora:\nvoce nao ve a sua.",
-                        fontSize = 12.sp,
+                        fontSize = scaled(12.sp),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
                     )
                 }

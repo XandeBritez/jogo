@@ -17,6 +17,8 @@ import fodinha.app.net.WifiClientTransport
 import fodinha.app.net.WifiHostTransport
 import fodinha.app.net.bluetoothAdapter
 import fodinha.app.net.discoverRooms
+import fodinha.app.ui.GameSettings
+import fodinha.app.ui.SettingsStore
 import fodinha.engine.GameAction
 import fodinha.engine.PlayerView
 import kotlinx.coroutines.Job
@@ -25,7 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, LOBBY, TABLE }
+enum class Screen { HOME, LOBBY, TABLE, OPTIONS }
 
 data class UiState(
     val screen: Screen = Screen.HOME,
@@ -39,18 +41,36 @@ data class UiState(
     val btDevices: List<BluetoothDevice> = emptyList(),
     val error: String? = null,
     val connecting: Boolean = false,
+    val settings: GameSettings = GameSettings(),
 )
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val _ui = MutableStateFlow(UiState())
+    private val store = SettingsStore(app)
+
+    private val _ui = MutableStateFlow(
+        UiState(playerName = store.playerName(), settings = store.load()),
+    )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
     private var host: GameHost? = null
     private var client: ClientTransport? = null
     private var discoveryJob: Job? = null
 
-    fun setName(name: String) = _ui.update { it.copy(playerName = name) }
+    fun setName(name: String) {
+        store.savePlayerName(name)
+        _ui.update { it.copy(playerName = name) }
+    }
+
+    /** Preferencia visual: grava na hora, para valer na proxima abertura. */
+    fun setSettings(settings: GameSettings) {
+        store.save(settings)
+        _ui.update { it.copy(settings = settings) }
+    }
+
+    fun openOptions() = _ui.update { it.copy(screen = Screen.OPTIONS) }
+
+    fun closeOptions() = _ui.update { it.copy(screen = Screen.HOME) }
 
     fun dismissError() = _ui.update { it.copy(error = null) }
 
@@ -200,7 +220,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun leave() {
         closeAll()
         _ui.update {
-            UiState(playerName = it.playerName)
+            UiState(playerName = it.playerName, settings = it.settings)
         }
     }
 
