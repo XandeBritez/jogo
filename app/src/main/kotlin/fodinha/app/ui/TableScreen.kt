@@ -45,6 +45,9 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +60,9 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.unit.isUnspecified
 import fodinha.engine.Phase
 import fodinha.engine.PlayerView
+
+/** Um tom acima do bloco escuro: usado no circulo de previsao habilitado. */
+private val SlateBrightTable = Color(0xFF2A5C3C)
 
 @Composable
 fun TableScreen(
@@ -76,7 +82,11 @@ fun TableScreen(
     val base = LocalTextStyle.current
     val baseSize = if (base.fontSize.isUnspecified) 16.sp else base.fontSize
     CompositionLocalProvider(LocalTextStyle provides base.copy(fontSize = scaled(baseSize))) {
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(MenuGreen, MenuGreenDeep))),
+    ) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -122,7 +132,7 @@ private fun HistoryList(view: PlayerView) {
         Text(
             "Nada aconteceu ainda.",
             fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+            color = Ink.copy(alpha = 0.75f),
         )
         return
     }
@@ -130,7 +140,7 @@ private fun HistoryList(view: PlayerView) {
     Text(
         "Mais recente primeiro",
         fontSize = 11.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        color = Ink.copy(alpha = 0.7f),
     )
     Spacer(Modifier.height(8.dp))
     LazyColumn(
@@ -145,8 +155,7 @@ private fun HistoryList(view: PlayerView) {
                 linha,
                 fontSize = 13.sp,
                 fontWeight = if (abreRodada) FontWeight.Bold else FontWeight.Normal,
-                color = if (abreRodada) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (abreRodada) MenuGold else Ink,
             )
         }
     }
@@ -189,13 +198,13 @@ private fun TurnClock(view: PlayerView) {
                 label,
                 fontSize = 12.sp,
                 fontWeight = if (urgent) FontWeight.Black else FontWeight.SemiBold,
-                color = if (urgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
+                color = if (urgent) Color(0xFFFF8A80) else Color.White,
             )
             if (view.isMyTurn) {
                 Text(
                     if (view.phase == Phase.BIDDING) "no fim, previsao sorteada" else "no fim, carta sorteada",
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    color = Ink.copy(alpha = 0.75f),
                 )
             }
         }
@@ -203,7 +212,8 @@ private fun TurnClock(view: PlayerView) {
         LinearProgressIndicator(
             progress = { (left / limit).coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth(),
-            color = if (urgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            color = if (urgent) Color(0xFFFF8A80) else MenuGold,
+            trackColor = Slate,
         )
     }
 }
@@ -217,17 +227,12 @@ private fun TurnClock(view: PlayerView) {
  */
 @Composable
 private fun CompactButton(label: String, onClick: () -> Unit) {
-    Surface(
+    MenuTile(
+        modifier = Modifier.fillMaxWidth().height(34.dp),
+        contentPadding = 2.dp,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(32.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.primary,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, fontSize = 12.sp, maxLines = 1, softWrap = false)
-        }
+        Text(label, color = Ink, fontSize = 12.sp, maxLines = 1, softWrap = false)
     }
 }
 
@@ -245,6 +250,7 @@ private fun HeaderBar(view: PlayerView, onLeave: () -> Unit, onOpenHistory: () -
                 "Rodada ${view.roundIndex + 1} · ${view.cardsThisRound} carta(s)",
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -253,17 +259,17 @@ private fun HeaderBar(view: PlayerView, onLeave: () -> Unit, onOpenHistory: () -
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                color = Ink.copy(alpha = 0.8f),
             )
         }
 
         view.turned?.let { t ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("virada", fontSize = 10.sp, maxLines = 1)
+                Text("virada", fontSize = 10.sp, maxLines = 1, color = Ink.copy(alpha = 0.8f))
                 PlayingCard(t, small = true)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("manilha", fontSize = 10.sp, maxLines = 1, color = MaterialTheme.colorScheme.primary)
+                Text("manilha", fontSize = 10.sp, maxLines = 1, color = MenuGold)
                 ManilhaCard(view.manilhaLabel ?: "-")
             }
         }
@@ -319,15 +325,17 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
     val bid = view.bids[id]
     val won = view.tricksWon[id] ?: 0
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isTurn) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-            else MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = RoundedCornerShape(10.dp),
-        // Sem espaco para escrever "(voce)": a borda marca quem e voce.
-        border = if (souEu) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+    Box(
+        modifier = modifier
+            .background(Slate, RoundedCornerShape(10.dp))
+            // Dourado marca de quem e a vez; branco marca voce.
+            .then(
+                when {
+                    isTurn -> Modifier.border(2.dp, MenuGold, RoundedCornerShape(10.dp))
+                    souEu -> Modifier.border(1.5.dp, Color(0x66FFFFFF), RoundedCornerShape(10.dp))
+                    else -> Modifier
+                }
+            ),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp),
@@ -340,20 +348,19 @@ private fun PlayerSlot(view: PlayerView, id: Int, modifier: Modifier) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color = if (p.alive) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                color = if (p.alive) Color.White else Ink.copy(alpha = 0.4f),
             )
-            Text("♥ ${p.lives}", fontSize = 12.sp, maxLines = 1)
+            Text("♥ ${p.lives}", fontSize = 12.sp, maxLines = 1, color = Ink)
             Text(
                 if (bid == null) "—" else "$won/$bid",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 color = when {
-                    bid == null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    bid == null -> Ink.copy(alpha = 0.5f)
                     won > bid -> Color(0xFFFF8A80)
-                    won == bid -> Color(0xFF7FC8A9)
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    won == bid -> Color(0xFF7FE0A0)
+                    else -> Ink
                 },
             )
             // Rodada cega de 1 carta: vejo a carta dos outros, nao a minha.
@@ -372,14 +379,15 @@ private fun TrickArea(view: PlayerView) {
         modifier = Modifier
             .fillMaxWidth()
             .height(130.dp)
-            .background(Color(0x1AFFFFFF), RoundedCornerShape(14.dp))
+            .background(SlateSoft, RoundedCornerShape(14.dp))
+            .border(2.dp, MenuEdge, RoundedCornerShape(14.dp))
             .padding(10.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (view.currentTrick.isEmpty()) {
             Text(
                 if (view.phase == Phase.BIDDING) "Fazendo previsoes..." else "Mesa vazia",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                color = Ink.copy(alpha = 0.7f),
             )
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -395,8 +403,7 @@ private fun TrickArea(view: PlayerView) {
                             if (venceu) "${p.name} ✓" else p.name,
                             fontSize = 11.sp,
                             fontWeight = if (venceu) FontWeight.Black else FontWeight.Normal,
-                            color = if (venceu) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface,
+                            color = if (venceu) MenuGold else Ink,
                         )
                     }
                 }
@@ -407,10 +414,7 @@ private fun TrickArea(view: PlayerView) {
 
 @Composable
 private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    Box(Modifier.fillMaxWidth().background(Slate, RoundedCornerShape(12.dp))) {
         Column(Modifier.padding(14.dp)) {
             val blindOne = view.cardsThisRound == 1
             Text(
@@ -420,11 +424,13 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
                     else -> "Quantas vazas voce vai ganhar?"
                 },
                 fontWeight = FontWeight.SemiBold,
+                color = Color.White,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 "Soma das previsoes ate agora: ${view.bidSum} de ${view.cardsThisRound}",
                 fontSize = scaled(12.sp),
+                color = Ink.copy(alpha = 0.8f),
             )
             if (view.isMyTurn && view.forbiddenBid != null && view.forbiddenBid in 0..view.cardsThisRound &&
                 !view.legalBids.contains(view.forbiddenBid)
@@ -432,7 +438,7 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
                 Text(
                     "Voce e o ultimo: nao pode prever ${view.forbiddenBid} (a soma nao pode dar ${view.cardsThisRound}).",
                     fontSize = scaled(12.sp),
-                    color = MaterialTheme.colorScheme.error,
+                    color = Color(0xFFFF8A80),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -445,18 +451,37 @@ private fun BiddingPanel(view: PlayerView, onBid: (Int) -> Unit) {
                 ) {
                     (0..view.cardsThisRound).forEach { n ->
                         val legal = view.legalBids.contains(n)
-                        Button(
-                            onClick = { onBid(n) },
-                            enabled = legal,
-                            modifier = Modifier.size(56.dp),
-                            shape = CircleShape,
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                        ) { Text("$n", fontWeight = FontWeight.Bold) }
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    if (legal) SlateBrightTable else Slate.copy(alpha = 0.45f),
+                                    CircleShape,
+                                )
+                                .border(
+                                    BorderStroke(
+                                        if (legal) 2.dp else 1.dp,
+                                        if (legal) MenuGold else Color(0x22FFFFFF),
+                                    ),
+                                    CircleShape,
+                                )
+                                .then(
+                                    if (legal) Modifier.clickable { onBid(n) } else Modifier
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "$n",
+                                fontWeight = FontWeight.Black,
+                                fontSize = scaled(20.sp),
+                                color = if (legal) Color.White else Ink.copy(alpha = 0.35f),
+                            )
+                        }
                     }
                 }
             } else {
                 val who = view.currentPlayerId?.let { id -> view.players.first { it.id == id }.name }
-                Text("Vez de $who prever...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Vez de $who prever...", color = Ink.copy(alpha = 0.85f))
             }
         }
     }
@@ -471,12 +496,12 @@ private fun TrickRevealPanel(view: PlayerView) {
         else if (winner.id == view.me) "Voce ganhou a vaza" else "${winner.name} ganhou a vaza",
         fontWeight = FontWeight.Black,
         fontSize = scaled(16.sp),
-        color = MaterialTheme.colorScheme.primary,
+        color = MenuGold,
     )
     Text(
         "Recolhendo a mesa...",
         fontSize = scaled(12.sp),
-        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+        color = Ink.copy(alpha = 0.8f),
     )
 }
 
@@ -486,18 +511,15 @@ private fun PlayingPanel(view: PlayerView) {
     Text(
         if (view.isMyTurn) "Sua vez: escolha uma carta" else "Vez de $who",
         fontWeight = FontWeight.SemiBold,
-        color = if (view.isMyTurn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+        color = if (view.isMyTurn) MenuGold else Ink,
     )
 }
 
 @Composable
 private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    Box(Modifier.fillMaxWidth().background(Slate, RoundedCornerShape(12.dp))) {
         Column(Modifier.padding(14.dp)) {
-            Text("Fim da rodada", fontWeight = FontWeight.Bold, fontSize = scaled(18.sp))
+            Text("Fim da rodada", fontWeight = FontWeight.Bold, fontSize = scaled(18.sp), color = Color.White)
             Spacer(Modifier.height(8.dp))
             view.lastRoundSummary.forEach { r ->
                 val p = view.players.first { it.id == r.playerId }
@@ -505,32 +527,31 @@ private fun RoundOverPanel(view: PlayerView, onNext: () -> Unit) {
                     Modifier.fillMaxWidth().padding(vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(p.name, fontWeight = FontWeight.SemiBold)
+                    Text(p.name, fontWeight = FontWeight.SemiBold, color = Color.White)
                     Text(
                         "previu ${r.bid}, fez ${r.won}  →  -${r.livesLost}  (${r.livesAfter} vidas)" +
                             if (r.eliminated) "  ELIMINADO" else "",
                         fontSize = scaled(13.sp),
-                        color = if (r.livesLost == 0) Color(0xFF7FC8A9)
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (r.livesLost == 0) Color(0xFF7FE0A0) else Ink,
                     )
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("Proxima rodada") }
+            MenuTile(
+                modifier = Modifier.fillMaxWidth().height(58.dp),
+                onClick = onNext,
+            ) { Text("Proxima rodada", color = Color.White, fontSize = scaled(18.sp)) }
         }
     }
 }
 
 @Composable
 private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    Box(Modifier.fillMaxWidth().background(Slate, RoundedCornerShape(12.dp))) {
         Column(Modifier.padding(16.dp)) {
-            Text("Fim de jogo", fontSize = scaled(22.sp), fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+            Text("Fim de jogo", fontSize = scaled(22.sp), fontWeight = FontWeight.Black, color = MenuGold)
             Spacer(Modifier.height(10.dp))
-            Text("Classificacao", fontWeight = FontWeight.SemiBold)
+            Text("Classificacao", fontWeight = FontWeight.SemiBold, color = Color.White)
             Spacer(Modifier.height(6.dp))
             // eliminationOrder: primeiro eliminado primeiro, entao o ranking e o inverso.
             view.eliminationOrder.reversed().forEachIndexed { i, id ->
@@ -542,14 +563,16 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
                     Text(
                         "${i + 1}o  ${p.name}",
                         fontWeight = if (i == 0) FontWeight.Black else FontWeight.Normal,
-                        color = if (i == 0) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (i == 0) MenuGold else Ink,
                     )
-                    Text("${p.lives} vidas", fontSize = scaled(13.sp))
+                    Text("${p.lives} vidas", fontSize = scaled(13.sp), color = Ink)
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Button(onClick = onLeave, modifier = Modifier.fillMaxWidth()) { Text("Voltar ao inicio") }
+            MenuTile(
+                modifier = Modifier.fillMaxWidth().height(58.dp),
+                onClick = onLeave,
+            ) { Text("Voltar ao inicio", color = Color.White, fontSize = scaled(18.sp)) }
         }
     }
 }
@@ -558,7 +581,7 @@ private fun GameOverPanel(view: PlayerView, onLeave: () -> Unit) {
 @Composable
 private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text("Sua mao", fontWeight = FontWeight.SemiBold, fontSize = scaled(13.sp))
+        Text("Sua mao", fontWeight = FontWeight.SemiBold, fontSize = scaled(13.sp), color = Ink)
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -576,7 +599,7 @@ private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: 
                         if (view.canPlayBlind) "Sua vez: toque na carta para joga-la."
                         else "Carta virada para fora:\nvoce nao ve a sua.",
                         fontSize = scaled(12.sp),
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                        color = Ink.copy(alpha = 0.9f),
                     )
                 }
 
@@ -599,7 +622,10 @@ private fun HandArea(view: PlayerView, onPlay: (GameCard) -> Unit, onPlayBlind: 
         }
         if (view.canPlayBlind) {
             Spacer(Modifier.height(8.dp))
-            Button(onClick = onPlayBlind) { Text("Jogar minha carta") }
+            MenuTile(
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                onClick = onPlayBlind,
+            ) { Text("Jogar minha carta", color = Color.White, fontSize = scaled(17.sp)) }
         }
     }
 }

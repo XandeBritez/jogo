@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -36,6 +37,8 @@ val MenuGold = Color(0xFFD9A441)
 fun MenuTile(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    // Bloco baixo (o do cabecalho da mesa tem 32dp) nao aguenta 10dp de folga.
+    contentPadding: Dp = 10.dp,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -43,7 +46,7 @@ fun MenuTile(
         modifier = modifier
             .background(if (enabled) Slate else Slate.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(10.dp),
+            .padding(contentPadding),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
