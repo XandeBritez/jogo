@@ -49,7 +49,7 @@ data class GameSettings(
 )
 
 /** Relay que vem de fabrica; quem tem o seu proprio troca nas opcoes. */
-const val DEFAULT_RELAY_SERVER = ""
+const val DEFAULT_RELAY_SERVER = "187.77.38.60:5555"
 
 /** Paleta do dialogo "Selecionar uma cor", na ordem do print. */
 val CardColorChoices: List<Color> = listOf(

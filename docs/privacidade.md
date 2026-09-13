@@ -18,11 +18,13 @@ armazena nem envia dados pessoais** para o desenvolvedor ou para terceiros.
 - **Rede local / Bluetooth** — para encontrar e conectar com os outros
   jogadores da mesma rede ou pareados.
 - **Internet (opcional)** — na sala "pela internet", o app conecta a um servidor
-  de relay cujo endereço **você** informa nas Opções. O relay só repassa as
+  de relay (por padrão, um servidor operado pelo desenvolvedor; o endereço pode
+  ser trocado nas Opções por um servidor próprio). O relay só repassa as
   mensagens da partida (cartas, previsões, apelidos) entre os celulares da mesma
-  sala; não guarda histórico, não identifica o aparelho e não recebe áudio. O
-  desenvolvedor não opera um relay público: sem endereço configurado, o app não
-  acessa a internet.
+  sala; não guarda histórico, não identifica o aparelho, não grava nada em disco
+  e não recebe áudio (o chat de voz não existe nesse modo). A conexão não é
+  criptografada (é jogo de cartas, não dado sensível); quem está na mesma rede
+  do relay poderia, em tese, ver o tráfego.
 - **Preferências** — baralho, cor, tema, tamanho do texto e nome ficam salvos
   só no seu aparelho.
 
