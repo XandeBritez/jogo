@@ -114,6 +114,8 @@ private fun App(vm: GameViewModel, ui: UiState) {
                     onJoinWifi = vm::joinWifiRoom,
                     onHostBluetooth = vm::hostBluetoothRoom,
                     onScanBluetooth = vm::loadPairedDevices,
+                    onHostInternet = vm::hostInternetRoom,
+                    onJoinInternet = vm::joinInternetRoom,
                     onJoinBluetooth = vm::joinBluetooth,
                     onOpenOptions = vm::openOptions,
                 )

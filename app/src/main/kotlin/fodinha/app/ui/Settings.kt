@@ -44,7 +44,12 @@ data class GameSettings(
      * ignorando a cor escolhida.
      */
     val highContrast: Boolean = false,
+    /** "host:porta" do relay (modulo :relay numa VPS). Vazio = sem modo internet. */
+    val relayServer: String = DEFAULT_RELAY_SERVER,
 )
+
+/** Relay que vem de fabrica; quem tem o seu proprio troca nas opcoes. */
+const val DEFAULT_RELAY_SERVER = ""
 
 /** Paleta do dialogo "Selecionar uma cor", na ordem do print. */
 val CardColorChoices: List<Color> = listOf(
@@ -71,6 +76,7 @@ class SettingsStore(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "") }
             .getOrDefault(ThemeMode.SISTEMA),
         highContrast = prefs.getBoolean(KEY_CONTRAST, false),
+        relayServer = prefs.getString(KEY_RELAY, null) ?: DEFAULT_RELAY_SERVER,
     )
 
     fun save(s: GameSettings) {
@@ -81,6 +87,7 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_FAST, s.fastAnimation)
             .putString(KEY_THEME, s.themeMode.name)
             .putBoolean(KEY_CONTRAST, s.highContrast)
+            .putString(KEY_RELAY, s.relayServer)
             .apply()
     }
 
@@ -96,6 +103,7 @@ class SettingsStore(context: Context) {
         const val KEY_THEME = "themeMode"
         const val KEY_CONTRAST = "highContrast"
         const val KEY_NAME = "playerName"
+        const val KEY_RELAY = "relayServer"
     }
 }
 

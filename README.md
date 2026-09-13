@@ -9,7 +9,8 @@ Roda em três modos: **contra bots**, **sala WiFi** na rede local e **Bluetooth*
 
 ```
 :engine   Kotlin puro, sem dependência de Android. Todas as regras moram aqui.
-:app      Android: UI Compose, transportes (local/WiFi/Bluetooth), bots no host.
+:app      Android: UI Compose, transportes (local/WiFi/Bluetooth/internet), bots no host.
+:relay    JVM puro. Servidor burro para a sala pela internet: roda numa VPS, so repassa linhas.
 ```
 
 O `:engine` é um redutor imutável: `Engine.reduce(state, action) -> state`, determinístico
@@ -118,7 +119,12 @@ Cliente só manda ação e renderiza o que recebe.
 
 - **WiFi**: `ServerSocket` TCP + anúncio/descoberta por NSD (mDNS), serviço `_fodinha._tcp.`
 - **Bluetooth**: RFCOMM com UUID fixo, host = server. Aparelhos precisam estar pareados.
-- Ambos usam o mesmo enquadramento: **uma linha JSON por mensagem** (`SocketPipe`).
+- **Internet**: celular não aceita conexão de fora (NAT), então o host também **disca** para o
+  relay (`:relay`, `java -jar` numa VPS). Uma conexão TCP do host carrega todos os clientes;
+  cada linha vai embrulhada com o número da conexão no relay (`FROM n {...}` / `TO n {...}`).
+  Entrada por **código de 5 letras** que o relay sorteia. Sem voz (PCM cru não serve na
+  internet). Endereço do relay em Opções; deploy em `relay/deploy/INSTALAR.md`.
+- Todos usam o mesmo enquadramento: **uma linha JSON por mensagem** (`SocketPipe`).
 
 Bots rodam dentro do host como jogadores normais — a Engine não distingue bot de humano.
 
@@ -162,6 +168,11 @@ Instalar num aparelho:
   teste, mas captura, relay UDP e mistura só se provam com dois celulares na mesma rede, e
   não havia nenhum plugado na hora. Eco entre dois aparelhos na mesma mesa é o risco a
   observar: o cancelador do aparelho ajuda, mas não é garantia.
+- ✅ `:relay:test` — 7 testes do relay (abrir sala, entrar, código errado, sala cheia, host sair, expulsar, keepalive PING/PONG).
+- ✅ `RelayTransportTest` — 7 testes ponta a ponta na JVM: `GameHost` + transportes de relay reais
+  + `RelayServer` real em 127.0.0.1 (entrar, dois clientes, cair e voltar no mesmo assento, host fechar, relay fora do ar).
+- ⚠️ **Sala pela internet não rodou em aparelho** — nenhum device conectado. Falta: subir o
+  relay na VPS, configurar o endereço em Opções e testar com dois celulares em redes diferentes.
 - ✅ `:app:assembleDebug` — APK compila.
 - ✅ **Rodado em aparelho real** (Xiaomi 22101320G / Redmi Note 12 Pro, via USB). Partida contra
   bot jogada de ponta a ponta, sem crash:

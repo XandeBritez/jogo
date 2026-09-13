@@ -144,3 +144,31 @@ fun GearIcon(size: Dp, tint: Color = Color.White) {
         }
     }
 }
+
+/** Globo: circulo, equador e um meridiano em elipse. Internet, sala por codigo. */
+@Composable
+fun GlobeIcon(size: Dp, tint: Color = Color.White) {
+    Canvas(Modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = Stroke(width = w * 0.09f)
+        val pad = w * 0.08f
+        drawOval(
+            color = tint,
+            topLeft = androidx.compose.ui.geometry.Offset(pad, pad),
+            size = androidx.compose.ui.geometry.Size(w - 2 * pad, h - 2 * pad),
+            style = stroke,
+        )
+        // meridiano
+        drawOval(
+            color = tint,
+            topLeft = androidx.compose.ui.geometry.Offset(w * 0.32f, pad),
+            size = androidx.compose.ui.geometry.Size(w * 0.36f, h - 2 * pad),
+            style = stroke,
+        )
+        // equador e tropicos
+        drawLine(tint, androidx.compose.ui.geometry.Offset(pad, h * 0.5f), androidx.compose.ui.geometry.Offset(w - pad, h * 0.5f), stroke.width)
+        drawLine(tint, androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.3f), androidx.compose.ui.geometry.Offset(w * 0.84f, h * 0.3f), stroke.width * 0.8f)
+        drawLine(tint, androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.7f), androidx.compose.ui.geometry.Offset(w * 0.84f, h * 0.7f), stroke.width * 0.8f)
+    }
+}

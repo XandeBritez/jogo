@@ -1,0 +1,14 @@
+# /etc/systemd/system/fodinha-relay.service
+[Unit]
+Description=Fodinha relay (salas pela internet)
+After=network.target
+
+[Service]
+User=fodinha
+WorkingDirectory=/opt/fodinha
+ExecStart=/usr/bin/java -Xmx128m -jar /opt/fodinha/fodinha-relay.jar 5555
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "fodinha"
 include(":app")
 include(":engine")
+include(":relay")

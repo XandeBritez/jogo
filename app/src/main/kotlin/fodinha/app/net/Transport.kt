@@ -36,4 +36,4 @@ interface HostTransport {
     fun close()
 }
 
-enum class TransportKind { LOCAL, WIFI, BLUETOOTH }
+enum class TransportKind { LOCAL, WIFI, BLUETOOTH, INTERNET }

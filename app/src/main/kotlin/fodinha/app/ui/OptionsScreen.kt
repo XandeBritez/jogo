@@ -145,6 +145,18 @@ fun OptionsScreen(
                 Text(playerName, color = OptAccent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
 
+            OptionRow(
+                title = "Servidor de internet",
+                subtitle = "Endereco do relay (host:porta) para jogar com quem esta longe. " +
+                    "Todo mundo da mesa precisa usar o mesmo",
+                onClick = { dialog = OptDialogKind.RELAY },
+            ) {
+                Text(
+                    settings.relayServer.ifBlank { "nenhum" },
+                    color = OptAccent, fontSize = 15.sp, maxLines = 1,
+                )
+            }
+
             Spacer(Modifier.height(24.dp))
             Text(
                 "As regras (40 cartas, 10 vidas, manilha pela virada) nao mudam: sao do " +
@@ -177,6 +189,13 @@ fun OptionsScreen(
             dialog = null
         }) { dialog = null }
 
+        OptDialogKind.RELAY -> TextEditDialog(
+            title = "Servidor de internet",
+            hint = "ex.: 200.100.50.25:5555",
+            current = settings.relayServer,
+            onSave = { onSettings(settings.copy(relayServer = it.trim())); dialog = null },
+        ) { dialog = null }
+
         OptDialogKind.NAME -> NameEditDialog(playerName, {
             onName(it)
             dialog = null
@@ -186,7 +205,7 @@ fun OptionsScreen(
     }
 }
 
-private enum class OptDialogKind { THEME, DECK, COLOR, TEXT, NAME }
+private enum class OptDialogKind { THEME, DECK, COLOR, TEXT, NAME, RELAY }
 
 @Composable
 private fun SectionHeader(text: String) {
@@ -385,6 +404,36 @@ private fun TextSizeDialog(current: TextScale, onPick: (TextScale) -> Unit, onDi
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = OptAccent) } },
+    )
+}
+
+@Composable
+private fun TextEditDialog(
+    title: String,
+    hint: String,
+    current: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = OptDialog,
+        title = { Text(title, color = OptTitle) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text(hint, color = OptSub) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = menuTextFieldColors(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text) }) { Text("Salvar", color = OptAccent) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = OptAccent) } },
     )
 }
 

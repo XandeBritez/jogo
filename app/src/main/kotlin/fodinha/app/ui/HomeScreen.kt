@@ -76,6 +76,8 @@ fun HomeScreen(
     onHostBluetooth: (String) -> Unit,
     onScanBluetooth: () -> Unit,
     onJoinBluetooth: (android.bluetooth.BluetoothDevice) -> Unit,
+    onHostInternet: (String) -> Unit,
+    onJoinInternet: (String) -> Unit,
     onOpenOptions: () -> Unit,
 ) {
     var bots by remember { mutableIntStateOf(3) }
@@ -126,22 +128,26 @@ fun HomeScreen(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MenuTile(
-                        modifier = Modifier.fillMaxWidth().height(81.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         onClick = {
                             onScanWifi()
                             dialog = HomeDialog.WIFI
                         },
-                    ) { StackedTileLabel("Internet") { WifiIcon(24.dp) } }
+                    ) { TileLabel("WiFi") { WifiIcon(19.dp) } }
                     MenuTile(
-                        modifier = Modifier.fillMaxWidth().height(81.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        onClick = { dialog = HomeDialog.INTERNET },
+                    ) { TileLabel("Internet") { GlobeIcon(19.dp) } }
+                    MenuTile(
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         onClick = {
                             onScanBluetooth()
                             dialog = HomeDialog.BLUETOOTH
                         },
-                    ) { StackedTileLabel("Bluetooth") { BluetoothIcon(24.dp) } }
+                    ) { TileLabel("Bluet.") { BluetoothIcon(19.dp) } }
                 }
 
                 Column(
@@ -194,13 +200,21 @@ fun HomeScreen(
             },
             onDismiss = { dialog = null },
         )
+        HomeDialog.INTERNET -> InternetDialog(
+            room = room,
+            onRoom = { room = it },
+            server = ui.settings.relayServer,
+            onHost = { onHostInternet(room); dialog = null },
+            onJoin = { code -> onJoinInternet(code); dialog = null },
+            onDismiss = { dialog = null },
+        )
         HomeDialog.HELP -> InfoDialog("Como se joga", HELP_TEXT) { dialog = null }
         HomeDialog.ABOUT -> InfoDialog("Sobre", ABOUT_TEXT) { dialog = null }
         null -> Unit
     }
 }
 
-private enum class HomeDialog { NAME, WIFI, BLUETOOTH, HELP, ABOUT }
+private enum class HomeDialog { NAME, WIFI, BLUETOOTH, INTERNET, HELP, ABOUT }
 
 /** "Fodinha" escrito em cartas, do jeito que o miniTruco escreve o nome dele. */
 @Composable
@@ -455,6 +469,72 @@ private fun RoomDialog(
     )
 }
 
+/**
+ * Sala pela internet: nao ha o que procurar, so codigo. O host abre e recebe
+ * um codigo de 5 letras na tela da sala; o amigo digita aqui.
+ */
+@Composable
+private fun InternetDialog(
+    room: String,
+    onRoom: (String) -> Unit,
+    server: String,
+    onHost: () -> Unit,
+    onJoin: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var code by remember { mutableStateOf("") }
+    val hasServer = server.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Slate,
+        title = { Text("Sala pela internet", color = Color.White) },
+        text = {
+            Column {
+                if (!hasServer) {
+                    Text(
+                        "Sem servidor configurado. Va em Opcoes > Servidor de internet e " +
+                            "coloque o endereco do relay (host:porta).",
+                        fontSize = 13.sp, color = MenuGold,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
+                OutlinedTextField(
+                    value = room,
+                    onValueChange = onRoom,
+                    label = { Text("Nome da sala") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = menuTextFieldColors(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onHost, enabled = hasServer, modifier = Modifier.fillMaxWidth()) {
+                    Text("Abrir sala e gerar codigo")
+                }
+                Spacer(Modifier.height(14.dp))
+                Text("Ou entre com o codigo de um amigo:", fontWeight = FontWeight.SemiBold, color = Color.White)
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().take(5) },
+                    label = { Text("Codigo") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = menuTextFieldColors(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { onJoin(code) },
+                    enabled = hasServer && code.length == 5,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Entrar") }
+                Spacer(Modifier.height(8.dp))
+                Text("servidor: ${server.ifBlank { "nenhum" }}", fontSize = 12.sp, color = inkDim(0.7f))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = MenuGold) } },
+    )
+}
+
 @Composable
 private fun InfoDialog(title: String, body: String, onDismiss: () -> Unit) {
     AlertDialog(
@@ -477,4 +557,4 @@ private const val HELP_TEXT =
 
 private const val ABOUT_TEXT =
     "Fodinha\nversao 1.0\n\nKotlin + Jetpack Compose. Regras no modulo :engine, " +
-        "host-autoritativo no WiFi e no Bluetooth.\n\nfeito com carinho para jogar na mesa."
+        "host-autoritativo no WiFi, no Bluetooth e pela internet (relay).\n\nfeito com carinho para jogar na mesa."

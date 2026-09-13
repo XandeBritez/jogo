@@ -77,11 +77,29 @@ fun LobbyScreen(
                     TransportKind.LOCAL -> "partida local contra bots"
                     TransportKind.WIFI -> "sala WiFi na rede local"
                     TransportKind.BLUETOOTH -> "sala Bluetooth"
+                    TransportKind.INTERNET -> "sala pela internet"
                 },
                 color = inkDim(0.75f),
                 fontSize = 14.sp,
                 fontStyle = FontStyle.Italic,
             )
+
+            // Codigo da sala: e o que o host dita para os amigos entrarem.
+            ui.roomCode?.let { code ->
+                Spacer(Modifier.height(14.dp))
+                MenuTile(modifier = Modifier.fillMaxWidth().height(64.dp), onClick = {}) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("codigo da sala", color = inkDim(0.7f), fontSize = 12.sp)
+                        Text(
+                            code,
+                            color = MenuGold,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 6.sp,
+                        )
+                    }
+                }
+            }
 
             if (ui.connecting) {
                 Spacer(Modifier.height(14.dp))

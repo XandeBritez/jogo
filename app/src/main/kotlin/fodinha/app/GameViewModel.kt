@@ -12,6 +12,9 @@ import fodinha.app.net.DiscoveredRoom
 import fodinha.app.net.GameHost
 import fodinha.app.net.HostMsg
 import fodinha.app.net.LobbyInfo
+import fodinha.app.net.RelayClientTransport
+import fodinha.app.net.RelayHostTransport
+import fodinha.app.net.parseRelayAddress
 import fodinha.app.net.TransportKind
 import fodinha.app.net.VoiceChat
 import fodinha.app.net.VoiceRelay
@@ -49,6 +52,8 @@ data class UiState(
     /** Chat de voz. So existe em sala WiFi; `voicePort` zero = sala sem voz. */
     val voicePort: Int = 0,
     val voice: VoiceState = VoiceState(),
+    /** Codigo da sala pela internet, para ditar aos amigos. So no host. */
+    val roomCode: String? = null,
 )
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
@@ -142,6 +147,59 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- Internet (relay numa VPS) ----------
+
+    private fun relayAddress(): Pair<String, Int>? {
+        val addr = parseRelayAddress(_ui.value.settings.relayServer)
+        if (addr == null) _ui.update { it.copy(error = "Configure o servidor de internet nas opcoes (host:porta)") }
+        return addr
+    }
+
+    fun hostInternetRoom(roomName: String) {
+        val (relayHost, relayPort) = relayAddress() ?: return
+        val h = newHost(roomName)
+        val transport = RelayHostTransport(relayHost, relayPort)
+        h.attachRemote(transport)
+        _ui.update {
+            it.copy(kind = TransportKind.INTERNET, isHost = true, myId = 0, screen = Screen.LOBBY, connecting = true)
+        }
+        viewModelScope.launch {
+            h.publishLobby()
+            // O codigo so existe depois que o relay responde; ate la, "conectando".
+            transport.code.await()
+                .onSuccess { code ->
+                    _ui.update { it.copy(roomCode = code, connecting = false) }
+                    // Relay caiu no meio: a sala morreu para todo mundo, inclusive para mim.
+                    transport.ended.await()
+                    if (host === h) {
+                        closeAll()
+                        _ui.update {
+                            UiState(playerName = it.playerName, settings = it.settings, error = "A conexao com o relay caiu")
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    if (host === h) {
+                        closeAll()
+                        _ui.update {
+                            it.copy(connecting = false, screen = Screen.HOME, error = "Relay fora do ar: ${e.message}")
+                        }
+                    }
+                }
+        }
+    }
+
+    fun joinInternetRoom(code: String) {
+        val (relayHost, relayPort) = relayAddress() ?: return
+        if (code.isBlank()) {
+            _ui.update { it.copy(error = "Digite o codigo da sala") }
+            return
+        }
+        connectAs(TransportKind.INTERNET) {
+            RelayClientTransport(relayHost, relayPort, code, _ui.value.playerName)
+        }
+    }
+
     // ---------- Bluetooth ----------
 
     fun hostBluetoothRoom(roomName: String) {
@@ -195,11 +253,20 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(kind = kind, isHost = false, connecting = true, screen = Screen.LOBBY) }
         viewModelScope.launch {
             launch { c.inbound.collect { applyHostMsg(it) } }
-            runCatching { c.connect() }.onFailure { e ->
-                // Se eu mesmo ja sai, o socket fechou por minha causa: nao e falha.
-                if (client !== c) return@onFailure
+            val result = runCatching { c.connect() }
+            // Se eu mesmo ja sai, o socket fechou por minha causa: nao e falha.
+            if (client !== c) return@launch
+            result.onFailure { e ->
+                closeAll()
                 _ui.update {
                     it.copy(connecting = false, error = "Falha ao conectar: ${e.message}", screen = Screen.HOME)
+                }
+            }
+            result.onSuccess {
+                // Conexao terminou por conta do outro lado: o host saiu ou a rede caiu.
+                closeAll()
+                _ui.update {
+                    UiState(playerName = it.playerName, settings = it.settings, error = it.error ?: "A sala fechou")
                 }
             }
         }
