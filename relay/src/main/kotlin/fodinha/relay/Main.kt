@@ -5,10 +5,13 @@ fun main(args: Array<String>) {
     val port = args.firstOrNull()?.toIntOrNull() ?: 5555
     val server = RelayServer(port)
     server.start()
-    println("fodinha relay na porta ${server.port}")
-    Runtime.getRuntime().addShutdownHook(Thread { server.close() })
+    // Voz: UDP na MESMA porta. Um numero so para abrir no firewall (tcp e udp).
+    val voice = VoiceRelayServer(port, roomExists = server::hasRoom)
+    voice.start()
+    println("fodinha relay na porta ${server.port} (tcp jogo + udp voz)")
+    Runtime.getRuntime().addShutdownHook(Thread { voice.close(); server.close() })
     while (true) {
         Thread.sleep(60_000)
-        println("salas abertas: ${server.roomCount}")
+        println("salas abertas: ${server.roomCount}, salas com voz: ${voice.roomCount}")
     }
 }

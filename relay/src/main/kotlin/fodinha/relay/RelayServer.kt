@@ -64,6 +64,8 @@ class RelayServer(
     val port: Int get() = server.localPort
     val roomCount: Int get() = rooms.size
 
+    fun hasRoom(code: String): Boolean = rooms.containsKey(code)
+
     private class Conn(val socket: Socket) {
         val reader: BufferedReader = socket.getInputStream().bufferedReader()
         private val writer: BufferedWriter = socket.getOutputStream().bufferedWriter()

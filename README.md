@@ -122,8 +122,9 @@ Cliente só manda ação e renderiza o que recebe.
 - **Internet**: celular não aceita conexão de fora (NAT), então o host também **disca** para o
   relay (`:relay`, `java -jar` numa VPS). Uma conexão TCP do host carrega todos os clientes;
   cada linha vai embrulhada com o número da conexão no relay (`FROM n {...}` / `TO n {...}`).
-  Entrada por **código de 5 letras** que o relay sorteia. Sem voz (PCM cru não serve na
-  internet). Endereço do relay em Opções; deploy em `relay/deploy/INSTALAR.md`.
+  Entrada por **código de 5 letras** que o relay sorteia. Endereço do relay em Opções;
+  deploy em `relay/deploy/INSTALAR.md`. Voz também passa pelo relay: UDP na mesma porta,
+  AMR-WB via `MediaCodec` (~3,5 kB/s por falante), pacote leva o código da sala.
 - Todos usam o mesmo enquadramento: **uma linha JSON por mensagem** (`SocketPipe`).
 
 Bots rodam dentro do host como jogadores normais — a Engine não distingue bot de humano.
@@ -168,7 +169,11 @@ Instalar num aparelho:
   teste, mas captura, relay UDP e mistura só se provam com dois celulares na mesma rede, e
   não havia nenhum plugado na hora. Eco entre dois aparelhos na mesma mesa é o risco a
   observar: o cancelador do aparelho ajuda, mas não é garantia.
-- ✅ `:relay:test` — 7 testes do relay (abrir sala, entrar, código errado, sala cheia, host sair, expulsar, keepalive PING/PONG).
+- ✅ `:relay:test` — 10 testes do relay (abrir sala, entrar, código errado, sala cheia, host sair, expulsar,
+  keepalive PING/PONG; voz: repassa só para a mesma sala, ignora sala inexistente).
+- ✅ **Voz pela internet rodou em aparelho** (Xiaomi → relay no PC → peer falso em Python → eco de volta):
+  27 quadros AMR-WB de 70 bytes, encoder `c2.android.amrwb.encoder` a 23850 bps, decoder abriu na
+  volta. Falta ouvir de verdade com dois celulares em redes diferentes.
 - ✅ `RelayTransportTest` — 7 testes ponta a ponta na JVM: `GameHost` + transportes de relay reais
   + `RelayServer` real em 127.0.0.1 (entrar, dois clientes, cair e voltar no mesmo assento, host fechar, relay fora do ar).
 - ⚠️ **Sala pela internet não rodou em aparelho** — nenhum device conectado. Falta: subir o
@@ -185,13 +190,19 @@ Instalar num aparelho:
 - ✅ **WiFi e Bluetooth** — rodados entre dois aparelhos físicos (Xiaomi 22101320G e Samsung
   SM-A146M): sala aberta num, cliente entrando pelo outro, partida andando nos dois modos.
 
-## Chat de voz (só sala WiFi)
+## Chat de voz (sala WiFi e sala pela internet)
 
 Quem abre a sala WiFi abre junto um **relay UDP** (`net/Voice.kt`, `VoiceRelay`): cada aparelho
 manda um fluxo só, para o host, e o host devolve o que recebeu a todos os outros. Não há
 mistura no host — quem mistura é cada ouvinte (`VoiceChat`), somando o PCM de cada vizinho.
 Assim o host não vira gargalo de CPU, e **silenciar alguém é decisão local**: é o meu ouvido,
 não precisa passar pela rede.
+
+Na **sala pela internet** o relay UDP fica na VPS (`VoiceRelayServer`, mesma porta do TCP) e o
+áudio vai em **AMR-WB** pelo `MediaCodec` do Android (16 kHz, 23,85 kbps, ~61 bytes por quadro de
+20 ms) em vez de PCM cru. O datagrama ganha 5 bytes com o código da sala depois do cabeçalho; o
+relay só repassa entre quem está na mesma sala e só para salas que existem no relay TCP. Um
+decodificador por vizinho (AMR guarda estado). Mesmos botões, mesmo mute local.
 
 - Áudio: PCM 16 bits, mono, 16 kHz, quadros de 20 ms, por UDP num canal próprio. Fora do
   socket JSON de propósito: jogada atrasada por causa de áudio seria inaceitável, áudio

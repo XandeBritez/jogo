@@ -36,13 +36,14 @@ import fodinha.app.net.TransportKind
 /** Vermelho do microfone fechado, igual nos dois temas. */
 private val MicOff = Color(0xFFFF6B6B)
 
-/** A sala tem voz? So WiFi, e so quando o host abriu o relay. */
-fun UiState.hasVoice(): Boolean = kind == TransportKind.WIFI && voicePort != 0
+/** A sala tem voz? WiFi (relay no host) ou internet (relay na VPS); nunca Bluetooth ou local. */
+fun UiState.hasVoice(): Boolean =
+    (kind == TransportKind.WIFI || kind == TransportKind.INTERNET) && voicePort != 0
 
 /**
  * Barra de voz: entrar/sair e abrir/fechar o microfone. Some por completo
- * fora da sala WiFi - nao fica desabilitada, some, porque nao ha o que
- * prometer em Bluetooth ou contra bots.
+ * fora das salas WiFi e internet - nao fica desabilitada, some, porque nao
+ * ha o que prometer em Bluetooth ou contra bots.
  *
  * A permissao de microfone e pedida aqui, no toque em "entrar": pedir na
  * abertura do app, para um jogo de cartas, assusta.

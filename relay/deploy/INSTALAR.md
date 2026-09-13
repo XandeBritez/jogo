@@ -16,7 +16,8 @@ useradd -r -s /usr/sbin/nologin fodinha
 mkdir -p /opt/fodinha && mv /tmp/fodinha-relay.jar /opt/fodinha/ && chown -R fodinha /opt/fodinha
 mv /tmp/fodinha-relay.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now fodinha-relay
-ufw allow 5555/tcp        # se usa ufw
+ufw allow 5555/tcp        # jogo
+ufw allow 5555/udp        # voz (mesma porta, UDP)
 journalctl -u fodinha-relay -f   # "fodinha relay na porta 5555"
 ```
 

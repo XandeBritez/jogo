@@ -6,6 +6,8 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
+import android.media.MediaCodec
+import android.media.MediaFormat
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
@@ -40,14 +42,23 @@ import kotlin.math.sqrt
  *   [2..3] sequencia (so audio)
  *   [4..]  PCM 16 bits little-endian, mono, 16 kHz, 20 ms = 320 amostras
  *
- * PCM cru de proposito: 32 kB/s por falante e trocado numa LAN, e um codec
- * puxaria dependencia nativa para um app que hoje nao tem nenhuma.
+ * Na LAN o audio vai em PCM cru: 32 kB/s por falante e trocado, e nao ha
+ * o que comprimir. Pela internet (sala com codigo) vai em AMR-WB pelo
+ * MediaCodec do proprio Android (~3 kB/s), e o datagrama ganha o codigo da
+ * sala depois do cabecalho, para o relay da VPS saber a quem repassar:
+ *   [4..8]  codigo da sala, 5 bytes ASCII
+ *   [9..]   um quadro AMR-WB (20 ms)
  */
 
 const val VOICE_SAMPLE_RATE = 16_000
 const val VOICE_FRAME_SAMPLES = 320
 private const val VOICE_FRAME_BYTES = VOICE_FRAME_SAMPLES * 2
 private const val HEADER_BYTES = 4
+private const val CODE_BYTES = 5
+private const val AMR_WB_MIME = "audio/amr-wb"
+private const val AMR_WB_BITRATE = 23_850
+/** AMR-WB a 23.85 kbps da ~61 bytes por quadro; folga para o cabecalho. */
+private const val MAX_PACKET = HEADER_BYTES + CODE_BYTES + VOICE_FRAME_BYTES
 private const val TYPE_AUDIO: Byte = 1
 private const val TYPE_PRESENCE: Byte = 2
 
@@ -153,7 +164,18 @@ class VoiceChat(
     private val host: InetAddress,
     private val port: Int,
     private val myId: Int,
+    /** Codigo da sala pela internet. Null = LAN (PCM cru, sem codigo no pacote). */
+    private val roomCode: String? = null,
 ) {
+    private val internet = roomCode != null
+    private val headerBytes = if (internet) HEADER_BYTES + CODE_BYTES else HEADER_BYTES
+    private val codeBytes: ByteArray = roomCode?.take(CODE_BYTES)?.padEnd(CODE_BYTES)
+        ?.toByteArray(Charsets.US_ASCII) ?: ByteArray(0)
+
+    /** Codec so pela internet. Um decodificador por vizinho: AMR guarda estado. */
+    private var encoder: AmrWb? = null
+    private val decoders = ConcurrentHashMap<Int, AmrWb>()
+
     private val _state = MutableStateFlow(VoiceState())
     val state: StateFlow<VoiceState> = _state.asStateFlow()
 
@@ -266,12 +288,17 @@ class VoiceChat(
         check(tr.state == AudioTrack.STATE_INITIALIZED) { "alto-falante nao abriu" }
         track = tr
 
+        if (internet) encoder = AmrWb(encode = true)
+
         socket = DatagramSocket()
         rec.startRecording()
         tr.play()
     }
 
     private fun closeAudio() {
+        runCatching { encoder?.release() }; encoder = null
+        decoders.values.forEach { runCatching { it.release() } }
+        decoders.clear()
         runCatching { echo?.release() }; echo = null
         runCatching { noise?.release() }; noise = null
         runCatching { record?.stop() }
@@ -294,8 +321,10 @@ class VoiceChat(
         val sock = socket ?: return
         val target = InetSocketAddress(host, port)
         val samples = ShortArray(VOICE_FRAME_SAMPLES)
-        val buf = ByteArray(HEADER_BYTES + VOICE_FRAME_BYTES)
+        val buf = ByteArray(MAX_PACKET)
         val bb = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN)
+        val pcm = ByteArray(VOICE_FRAME_BYTES)
+        val pcmBuf = ByteBuffer.wrap(pcm).order(ByteOrder.LITTLE_ENDIAN)
         var seq = 0
         var lastKeepalive = 0L
         var hangover = 0
@@ -311,10 +340,23 @@ class VoiceChat(
             val loud = !micMuted && rms(samples, n) >= SPEECH_RMS
             if (loud) hangover = HANGOVER_FRAMES else if (hangover > 0) hangover--
             if (loud || (hangover > 0 && !micMuted)) {
-                bb.clear()
-                bb.put(TYPE_AUDIO).put(myId.toByte()).putShort((seq++ and 0xFFFF).toShort())
-                for (i in 0 until n) bb.putShort(samples[i])
-                runCatching { sock.send(DatagramPacket(buf, bb.position(), target)) }
+                val enc = encoder
+                if (enc == null) {
+                    bb.clear()
+                    putHeader(bb, TYPE_AUDIO, seq++)
+                    for (i in 0 until n) bb.putShort(samples[i])
+                    runCatching { sock.send(DatagramPacket(buf, bb.position(), target)) }
+                } else {
+                    // AMR-WB: o codec pode devolver 0, 1 ou 2 quadros por chamada.
+                    pcmBuf.clear()
+                    for (i in 0 until n) pcmBuf.putShort(samples[i])
+                    for (frame in enc.process(pcm, n * 2)) {
+                        bb.clear()
+                        putHeader(bb, TYPE_AUDIO, seq++)
+                        bb.put(frame, 0, minOf(frame.size, buf.size - bb.position()))
+                        runCatching { sock.send(DatagramPacket(buf, bb.position(), target)) }
+                    }
+                }
                 lastAudio[myId] = now
             }
             if (now - lastKeepalive >= KEEPALIVE_MS) {
@@ -325,29 +367,49 @@ class VoiceChat(
     }
 
     private fun sendPresence(sock: DatagramSocket, target: SocketAddress) {
-        val p = byteArrayOf(TYPE_PRESENCE, myId.toByte(), 0, 0)
-        runCatching { sock.send(DatagramPacket(p, p.size, target)) }
+        val bb = ByteBuffer.allocate(headerBytes).order(ByteOrder.LITTLE_ENDIAN)
+        putHeader(bb, TYPE_PRESENCE, 0)
+        runCatching { sock.send(DatagramPacket(bb.array(), bb.position(), target)) }
+    }
+
+    private fun putHeader(bb: ByteBuffer, type: Byte, seq: Int) {
+        bb.put(type).put(myId.toByte()).putShort((seq and 0xFFFF).toShort())
+        if (internet) bb.put(codeBytes)
     }
 
     private fun receiveLoop() {
         val sock = socket ?: return
-        val buf = ByteArray(HEADER_BYTES + VOICE_FRAME_BYTES)
+        val buf = ByteArray(MAX_PACKET)
         val packet = DatagramPacket(buf, buf.size)
         while (running) {
             runCatching { sock.receive(packet) }.onFailure { return }
-            if (packet.length < HEADER_BYTES || buf[0] != TYPE_AUDIO) continue
+            if (packet.length <= headerBytes || buf[0] != TYPE_AUDIO) continue
             val from = buf[1].toInt()
             if (from == myId || from in mutedPeers) continue
-            val count = (packet.length - HEADER_BYTES) / 2
+            val payloadLen = packet.length - headerBytes
+            if (internet) {
+                val dec = decoders.getOrPut(from) { AmrWb(encode = false) }
+                val frameBytes = buf.copyOfRange(headerBytes, packet.length)
+                for (pcm in dec.process(frameBytes, payloadLen)) enqueuePcm(from, pcm, pcm.size)
+            } else {
+                enqueuePcm(from, buf.copyOfRange(headerBytes, packet.length), payloadLen)
+            }
+            lastAudio[from] = System.currentTimeMillis()
+        }
+    }
+
+    /** PCM16 LE de qualquer tamanho vira quadros de 320 amostras na fila do vizinho. */
+    private fun enqueuePcm(from: Int, pcm: ByteArray, len: Int) {
+        val bb = ByteBuffer.wrap(pcm, 0, len).order(ByteOrder.LITTLE_ENDIAN)
+        val q = queues.getOrPut(from) { ArrayDeque() }
+        while (bb.remaining() >= 2) {
             val frame = ShortArray(VOICE_FRAME_SAMPLES)
-            val bb = ByteBuffer.wrap(buf, HEADER_BYTES, count * 2).order(ByteOrder.LITTLE_ENDIAN)
-            for (i in 0 until minOf(count, VOICE_FRAME_SAMPLES)) frame[i] = bb.getShort()
-            val q = queues.getOrPut(from) { ArrayDeque() }
+            var i = 0
+            while (i < VOICE_FRAME_SAMPLES && bb.remaining() >= 2) frame[i++] = bb.getShort()
             synchronized(q) {
                 if (q.size >= JITTER_FRAMES) q.removeFirst()
                 q.addLast(frame)
             }
-            lastAudio[from] = System.currentTimeMillis()
         }
     }
 
@@ -388,5 +450,62 @@ class VoiceChat(
             acc += v * v
         }
         return sqrt(acc / n)
+    }
+}
+
+/**
+ * AMR-WB pelo MediaCodec, uso sincrono: entra um quadro, saem os que o codec
+ * ja tiver prontos (0, 1 ou 2 - ha um quadro de atraso no comeco). Sem
+ * dependencia nova: e o codec de voz que todo Android traz de fabrica.
+ */
+private class AmrWb(encode: Boolean) {
+    private val codec: MediaCodec = if (encode) {
+        MediaCodec.createEncoderByType(AMR_WB_MIME)
+    } else {
+        MediaCodec.createDecoderByType(AMR_WB_MIME)
+    }
+    private val info = MediaCodec.BufferInfo()
+    private var pts = 0L
+
+    init {
+        val fmt = MediaFormat.createAudioFormat(AMR_WB_MIME, VOICE_SAMPLE_RATE, 1)
+        if (encode) fmt.setInteger(MediaFormat.KEY_BIT_RATE, AMR_WB_BITRATE)
+        codec.configure(fmt, null, null, if (encode) MediaCodec.CONFIGURE_FLAG_ENCODE else 0)
+        codec.start()
+    }
+
+    fun process(input: ByteArray, len: Int): List<ByteArray> {
+        val inIdx = codec.dequeueInputBuffer(20_000)
+        if (inIdx >= 0) {
+            val ib = codec.getInputBuffer(inIdx) ?: return emptyList()
+            ib.clear()
+            ib.put(input, 0, len)
+            codec.queueInputBuffer(inIdx, 0, len, pts, 0)
+            pts += 20_000
+        }
+        val out = ArrayList<ByteArray>(2)
+        while (true) {
+            val outIdx = codec.dequeueOutputBuffer(info, 0)
+            when {
+                outIdx >= 0 -> {
+                    val ob = codec.getOutputBuffer(outIdx)
+                    if (ob != null && info.size > 0) {
+                        val arr = ByteArray(info.size)
+                        ob.position(info.offset)
+                        ob.get(arr)
+                        out += arr
+                    }
+                    codec.releaseOutputBuffer(outIdx, false)
+                }
+                outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> continue
+                else -> break
+            }
+        }
+        return out
+    }
+
+    fun release() {
+        runCatching { codec.stop() }
+        runCatching { codec.release() }
     }
 }

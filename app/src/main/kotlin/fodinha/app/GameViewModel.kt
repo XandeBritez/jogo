@@ -28,7 +28,10 @@ import fodinha.app.ui.GameSettings
 import fodinha.app.ui.SettingsStore
 import fodinha.engine.GameAction
 import fodinha.engine.PlayerView
+import fodinha.app.ui.hasVoice
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,6 +80,9 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     /** Onde fica o relay: o host da sala em que entrei, ou eu mesmo. */
     private var voiceHost: InetAddress = InetAddress.getLoopbackAddress()
 
+    /** Pela internet o relay de voz e a VPS: resolve o nome so na hora de entrar. */
+    private var voiceHostName: String? = null
+
     fun setName(name: String) {
         store.savePlayerName(name)
         _ui.update { it.copy(playerName = name) }
@@ -117,6 +123,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         voiceRelay = relay
         h.voicePort = relay.port
         voiceHost = InetAddress.getLoopbackAddress()
+        voiceHostName = null
         _ui.update {
             it.copy(
                 kind = TransportKind.WIFI, isHost = true, myId = 0, screen = Screen.LOBBY,
@@ -142,6 +149,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     fun joinWifiRoom(room: DiscoveredRoom) {
         voiceHost = room.host
+        voiceHostName = null
         connectAs(TransportKind.WIFI) {
             WifiClientTransport(room.host, room.port, _ui.value.playerName)
         }
@@ -160,8 +168,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         val h = newHost(roomName)
         val transport = RelayHostTransport(relayHost, relayPort)
         h.attachRemote(transport)
+        // Voz pela internet: relay UDP na VPS, mesma porta do relay TCP.
+        h.voicePort = relayPort
+        voiceHostName = relayHost
         _ui.update {
-            it.copy(kind = TransportKind.INTERNET, isHost = true, myId = 0, screen = Screen.LOBBY, connecting = true)
+            it.copy(
+                kind = TransportKind.INTERNET, isHost = true, myId = 0, screen = Screen.LOBBY,
+                connecting = true, voicePort = relayPort,
+            )
         }
         viewModelScope.launch {
             h.publishLobby()
@@ -195,9 +209,11 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             _ui.update { it.copy(error = "Digite o codigo da sala") }
             return
         }
+        voiceHostName = relayHost
         connectAs(TransportKind.INTERNET) {
             RelayClientTransport(relayHost, relayPort, code, _ui.value.playerName)
         }
+        _ui.update { it.copy(roomCode = code.trim().uppercase()) }
     }
 
     // ---------- Bluetooth ----------
@@ -334,25 +350,40 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         stopRoomDiscovery()
     }
 
-    // ---------- Voz (so sala WiFi) ----------
+    // ---------- Voz (sala WiFi e sala pela internet) ----------
 
     /** Entra no chat de voz. Precisa de RECORD_AUDIO concedida; quem pede e a UI. */
     fun joinVoice() {
         val st = _ui.value
-        if (st.kind != TransportKind.WIFI || st.voicePort == 0 || voiceChat != null) return
-        val chat = VoiceChat(getApplication(), voiceHost, st.voicePort, st.myId)
-        voiceChat = chat
-        chat.start()
-        voiceJob = viewModelScope.launch {
-            chat.state.collect { v -> _ui.update { it.copy(voice = v) } }
-        }
-        if (chat.state.value.connected) {
-            send(ClientMsg.VoiceJoin)
-        } else {
-            // Nao abriu: avisa e desfaz, para o botao voltar a "entrar".
-            val why = chat.state.value.error
-            _ui.update { it.copy(error = why ?: "chat de voz nao abriu") }
-            leaveVoice()
+        if (!st.hasVoice() || voiceChat != null) return
+        val internet = st.kind == TransportKind.INTERNET
+        val code = if (internet) st.roomCode ?: return else null
+        viewModelScope.launch {
+            // DNS da VPS nao pode rodar na thread principal.
+            val target = if (internet) {
+                withContext(Dispatchers.IO) { runCatching { InetAddress.getByName(voiceHostName) }.getOrNull() }
+            } else {
+                voiceHost
+            }
+            if (target == null) {
+                _ui.update { it.copy(error = "nao achei o servidor de voz") }
+                return@launch
+            }
+            if (voiceChat != null) return@launch
+            val chat = VoiceChat(getApplication(), target, st.voicePort, st.myId, roomCode = code)
+            voiceChat = chat
+            withContext(Dispatchers.IO) { chat.start() }
+            voiceJob = viewModelScope.launch {
+                chat.state.collect { v -> _ui.update { it.copy(voice = v) } }
+            }
+            if (chat.state.value.connected) {
+                send(ClientMsg.VoiceJoin)
+            } else {
+                // Nao abriu: avisa e desfaz, para o botao voltar a "entrar".
+                val why = chat.state.value.error
+                _ui.update { it.copy(error = why ?: "chat de voz nao abriu") }
+                leaveVoice()
+            }
         }
     }
 
