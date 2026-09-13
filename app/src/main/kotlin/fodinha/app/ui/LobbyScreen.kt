@@ -88,16 +88,19 @@ fun LobbyScreen(
             // Codigo da sala: e o que o host dita para os amigos entrarem.
             ui.roomCode?.let { code ->
                 Spacer(Modifier.height(14.dp))
-                MenuTile(modifier = Modifier.fillMaxWidth().height(64.dp), onClick = {}) {
+                MenuTile(modifier = Modifier.fillMaxWidth(), contentPadding = 14.dp, onClick = {}) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("codigo da sala", color = inkDim(0.7f), fontSize = 12.sp)
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             code,
                             color = MenuGold,
                             fontSize = 28.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 6.sp,
+                            letterSpacing = 4.sp,
+                            maxLines = 1,
+                            softWrap = false,
                         )
                     }
                 }
