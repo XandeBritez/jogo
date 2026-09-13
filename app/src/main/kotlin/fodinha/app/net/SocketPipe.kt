@@ -38,9 +38,15 @@ class SocketPipe(
         runCatching { reader.readLine() }.getOrNull()
     }
 
+    /**
+     * Fecha o SOCKET, e so ele. Fechar o BufferedReader pede o lock que a
+     * thread de leitura segura enquanto bloqueada em readLine(): na LAN o
+     * socket devolve logo, mas pela internet a thread principal ficava presa
+     * ate o proximo PING do relay - 16 s de ANR e o sistema matava o app.
+     * Fechar o socket por baixo acorda a leitura com IOException, que o
+     * readLine() ja traduz em null.
+     */
     override fun close() {
-        runCatching { reader.close() }
-        runCatching { writer.close() }
         runCatching { closer?.close() }
     }
 }
