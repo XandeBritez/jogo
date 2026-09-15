@@ -39,7 +39,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: encolhe e ofusca. As regras do protocolo estao em
+            // proguard-rules.pro - serializador removido so aparece em sala
+            // de verdade, nao nos testes de unidade.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (keystoreProps.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }
