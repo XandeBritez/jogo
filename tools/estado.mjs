@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+const page = browser.contexts().flatMap((c) => c.pages()).find((p) => p.url().includes('play.google.com'));
+const espera = Number(process.argv[2] ?? 0);
+if (espera) await page.waitForTimeout(espera * 1000);
+await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+await page.waitForTimeout(8000);
+console.log('URL:', page.url());
+console.log('---');
+console.log(await page.evaluate(() => document.body.innerText.slice(0, 5000)));
+await browser.close();
