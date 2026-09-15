@@ -21,3 +21,6 @@ WhatsApp Image*.jpeg
 
 # Chave de assinatura da Play Store: segredo, fica fora do repositorio
 keystore/
+
+# Playwright e companhia: ferramenta local, nao faz parte do app
+node_modules/
