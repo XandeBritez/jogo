@@ -178,6 +178,10 @@ Instalar num aparelho:
   + `RelayServer` real em 127.0.0.1 (entrar, dois clientes, cair e voltar no mesmo assento, host fechar, relay fora do ar).
 - ⚠️ **Sala pela internet não rodou em aparelho** — nenhum device conectado. Falta: subir o
   relay na VPS, configurar o endereço em Opções e testar com dois celulares em redes diferentes.
+- ✅ **Release com R8 rodou em aparelho** (Xiaomi 22101320G, APK de release assinado): abre, entra na
+  sala pela internet (o caminho que exercita `Hello` → `Welcome` → `Lobby`, onde um serializador
+  removido apareceria), entra na voz com o encoder AMR-WB, sem crash. Ícones sobreviveram ao
+  `shrinkResources` (15 PNG + 2 XML adaptativos, renomeados).
 - ✅ `:app:assembleDebug` — APK compila.
 - ✅ **Rodado em aparelho real** (Xiaomi 22101320G / Redmi Note 12 Pro, via USB). Partida contra
   bot jogada de ponta a ponta, sem crash:
